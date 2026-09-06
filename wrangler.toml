@@ -1,0 +1,45 @@
+name = "atf-demo-aauth-dev"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Opt in to the account-level Workers Trace Events Logpush job (forensic
+# archive). Per-worker opt-in is required — without this the account job
+# ignores the worker.
+logpush = true
+
+[observability]
+enabled = true
+
+[vars]
+ORIGIN = "https://atf-demo.aauth.dev"
+# The summit agent provider. Comma-separated to add others.
+AGENT_PROVIDERS = "https://verifiable-agent-summit-provider.vercel.app"
+# "bare" (AAuth as written) or "params" (atf-* on the challenge). See src/atf.ts.
+ATF_CHALLENGE_CARRIER = "bare"
+
+[[queues.producers]]
+queue = "aauth-events"
+binding = "EVENTS_QUEUE"
+
+# ── Local development ──
+#
+# The custom-domain route lives under [env.production], not at the top level.
+# `wrangler dev` rewrites the request authority to a top-level route pattern,
+# so the worker would see `atf-demo.aauth.dev` while the client signed
+# `localhost:8787` — and `@authority` is a covered component, so every
+# signature would fail to verify. Deploy with `--env production`.
+#
+# The harness writes .dev.vars with AGENT_PROVIDER_JWKS pointing at the local
+# agent provider it stands up; that file is gitignored and never deployed.
+
+[env.production]
+vars = { ORIGIN = "https://atf-demo.aauth.dev", AGENT_PROVIDERS = "https://verifiable-agent-summit-provider.vercel.app", ATF_CHALLENGE_CARRIER = "bare" }
+
+[[env.production.routes]]
+pattern = "atf-demo.aauth.dev"
+custom_domain = true
+
+[[env.production.queues.producers]]
+queue = "aauth-events"
+binding = "EVENTS_QUEUE"

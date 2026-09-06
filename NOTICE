@@ -1,0 +1,9 @@
+ATF Demo Resource (atf-demo.aauth.dev)
+Copyright 2026 Hello Identity Co-op
+
+This product includes software developed as part of the AAuth project
+(https://aauth.dev).
+
+harness/provider.mjs is a modified copy of demo/provider/provider.mjs from
+the CSA Verifiable Agent Summit repository, used here only to stand up a
+local agent provider for testing. See the note at the top of that file.

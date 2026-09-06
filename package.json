@@ -1,0 +1,33 @@
+{
+  "name": "atf-demo.aauth.dev",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AAuth resource that reads a signed ATF grade from an agent token — the relying party of the CSA Verifiable Agent Summit chain",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --env production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "harness": "node harness/setup.mjs"
+  },
+  "dependencies": {
+    "@aauth/protocol": "^1.0.1",
+    "@aauth/resource": "^2.1.0",
+    "@hellocoop/httpsig": "^2.3.0",
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.3",
+    "@cloudflare/workers-types": "^5.20260831.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260903.1": true,
+    "fsevents@2.3.3": true
+  }
+}

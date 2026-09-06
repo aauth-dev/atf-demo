@@ -1,0 +1,62 @@
+{
+  "type": "atf-appraisal-result",
+  "version": "0.1-draft",
+  "appraisal_id": "urn:uuid:f398589fc587869a9541b61c9ba19908",
+  "issuer": "https://demo.verifiedagents.ai",
+  "subject": {
+    "agent_id": "spiffe://example.org/agent/planner",
+    "session_id": "urn:uuid:a75d904799fcb6b48a2f6b8e6cb5d794",
+    "workload_id": "spiffe://example.org/agent/planner"
+  },
+  "profile": {
+    "id": "csa-atf",
+    "version": "0.9.1",
+    "policy_hash": "sha256:a8b6554101efbec38ba9597b6aec805ea104c26e93083b99b01b3fd2a203c532"
+  },
+  "evidence": {
+    "trace_profile": "tag:agentrust-io.com,2026:trace-v0.2",
+    "record_id": "urn:uuid:42e5e82cf1b9aecf3aa913988bf4d018",
+    "record_hash": "sha256:be134c879a16ac04dc7527889b6f4fb1b92994dc6274778a79e45a1aa59f4fd2",
+    "verification_level": 1
+  },
+  "result": {
+    "trust_level": "senior",
+    "decision": "qualifying",
+    "reason_codes": [
+      "ATF-TRACE-SIG",
+      "ATF-SUBJECT-PRESENT",
+      "ATF-FRESH",
+      "ATF-POLICY-BOUND",
+      "ATF-TRANSCRIPT-BOUND",
+      "ATF-MODEL-ID",
+      "ATF-MODULES-PASS",
+      "ATF-STATUS-REF",
+      "ATF-SESSION-DERIVED"
+    ],
+    "limitations": [
+      "Evidence field presence and shape were checked. Remote references were not resolved and no hardware quote was re-verified.",
+      "A level under this profile is eligibility for consideration, not permission and not a safety claim.",
+      "The TRACE record carries no session identifier, so the observation boundary is the record itself and the session identifier was derived from the record digest."
+    ],
+    "next_level": "principal",
+    "next_level_blocked_by": [
+      {
+        "code": "ATF-HW-ROOT",
+        "detail": "platform tpm2 at verification level 1"
+      },
+      {
+        "code": "ATF-TRANSPARENCY",
+        "detail": "no transparency anchor for this record"
+      }
+    ]
+  },
+  "status": {
+    "channel": "https://demo.verifiedagents.ai/status/atf",
+    "on_unreachable": "fail_closed"
+  },
+  "iat": 1788631017,
+  "exp": 1788634617,
+  "sequence": 42,
+  "supersedes": null,
+  "signature": "nAf3T3hsyN09MU427HkRTXaUe5Fgw8MGVrJAA1YPjp4PCWFBctPY4SPXBh7R2MxUnCEF7tNWTOgb_RVhRTBfCw"
+}
