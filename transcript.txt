@@ -1,40 +1,23 @@
 atf-demo.aauth.dev — captured run
-Captured: 2026-09-06 18:42 UTC
-Node: v22.22.3   Resource: http://localhost:8787 (wrangler dev)
+Captured: 2026-09-06 18:56 UTC
+Node: v22.22.3   Resource: http://localhost:8787
 Agent provider: https://ap.atf-demo.local (local, harness/setup.mjs)
 
 Every byte below is machine-produced. harness/setup.mjs mints the tokens;
 client.mjs signs the requests and prints what it sent and what came back.
+Regenerate with: node harness/capture.mjs
 
 The appraisal behind these tokens is the committed evaluator output from
 the summit repo with its validity window moved onto the current clock,
-which invalidates the evaluator's signature over it. Nothing here verifies
-that signature: the grade reaches the resource as the agent provider's
-assertion, held on the provider's authority. See the note at the top of
-harness/setup.mjs.
+which invalidates the evaluator’s signature over it. Nothing here verifies
+that signature: the grade reaches the resource as the agent provider’s
+assertion, held on the provider’s authority. See harness/setup.mjs.
 
 ================================================================
 0. What the resource says it requires
 ================================================================
 $ curl -s http://localhost:8787/.well-known/aauth-resource.json
-{
-  "issuer": "http://localhost:8787",
-  "access_mode": "agent-token",
-  "name": "ATF Demo Resource",
-  "description": "The relying party of the CSA Verifiable Agent Summit chain. It accepts an AAuth agent token carrying a signed ATF grade, verifies the agent provider and reads the grade the provider vouches for, then decides for itself. `GET /agent/echo` reports what it verified; `GET /api/summarize` applies the same gate and then challenges for a person token, because a qualifying level is eligibility for consideration and not permission.",
-  "documentation_uri": "https://github.com/aauth-dev/atf-demo",
-  "https://agentictrustframework.ai/policy": {
-    "profiles": [
-      "csa-atf:0.9.1"
-    ],
-    "minimum_level": "senior",
-    "evaluators": [
-      "https://demo.verifiedagents.ai"
-    ],
-    "status_channel": "https://demo.verifiedagents.ai/status/atf",
-    "on_status_unreachable": "fail_closed"
-  }
-}
+{"issuer":"http://localhost:8787","access_mode":"agent-token","name":"ATF Demo Resource","description":"The relying party of the CSA Verifiable Agent Summit chain. It accepts an AAuth agent token carrying a signed ATF grade, verifies the agent provider and reads the grade the provider vouches for, then decides for itself. `GET /agent/echo` reports what it verified; `GET /api/summarize` applies the same gate and then challenges for a person token, because a qualifying level is eligibility for consideration and not permission.","documentation_uri":"https://github.com/aauth-dev/atf-demo","https://agentictrustframework.ai/policy":{"profiles":["csa-atf:0.9.1"],"minimum_level":"senior","evaluators":["https://demo.verifiedagents.ai"],"status_channel":"https://demo.verifiedagents.ai/status/atf","on_status_unreachable":"fail_closed"}}
 
 The ATF requirement lives under the namespace ATF owns. There is no
 jwks_uri: this resource issues no tokens and signs no calls, so it
@@ -54,15 +37,19 @@ aauth-requirement:requirement=agent-token
 accept-signature: sig=("@method" "@authority" "@path" "signature-key")
 accept-signature-scheme:jwt
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-content-encoding: gzip
-content-type:     application/json
+content-type:     application/problem+json
 link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
-transfer-encoding:chunked
 
 {
-  "error": "agent_token_required"
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "error": "agent_token_required",
+  "detail": "no signature presented"
 }
   exit 1
+
+Nothing was presented, and the body says exactly that: agent_token_required.
 
 ================================================================
 CASE 1 of 4: valid — a fresh Senior token
@@ -70,9 +57,9 @@ CASE 1 of 4: valid — a fresh Senior token
 $ node client.mjs --case=valid --url http://localhost:8787/agent/echo
 --- sent ---
 GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720173
-signature:        sig=:lOWqB0iyHBc5FRl522QRQdyW2ymxizmcL3WlQIPOxtfT/2LZr9qFaAFo+CPKSpzC4pL9odk0yJ+BygO1yEYCBg==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNWJiNDdiODJmYTYzODAwZSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI3ODhlNzFlMi0zYjRjLTRmYWQtYWY1Ni1hYjRlZDg0YTZhYTgiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoibXp5V0lZcjZyc2tjRW9rbklFN00xVVZXTkRDSWRCMlVfOU5ORkpWeV9WNCIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDE1MCwiZXhwIjoxNzg4NzIzNzUwLCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OmQ4ZWUwZjBkNDFlNGM3ODQ0YjI0NWYwOGVhMWQxYzc1ZDg0MWRhMTAzNjJjZTA2NDZhODEyZjg0NDU4MGFkM2YiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyMzc1MCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.MkK5TKww7OFNX8WPcEs43T1CKIsVusBqHpl3VDBdxFALb9eJoJSr5dz5ttbYNzfeoxv15RnymqXZ0BjAj7XDBg"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720997
+signature:        sig=:XzkV05KHJQziS6Eu7bXznOzbOLuuzQEsQIiWfPukGhLGkLJYrxeCtofD0Mvj8IFhbZ0tolIihPkydubQekDdDQ==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI0OWE1MjZmOC00YzM0LTRhNDMtYmQxZS00ZDU4OWQ4MDBkMWQiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoicEFEQ3Fta0tPTmFiY3JKV1FDdS1nRlNNcXRiUUVvZnFZSlJuX0k3SWtTbyIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OjcxOTQwYWFiNjMzMTI4YzQ4NTJkM2VhNmVhYjVhZmE1YWIxNmVhZjI4MmFlYTFiNDZkOGQ3OWQ3MGQ4YWJhNmQiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyNDUyOCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.5U9aiWp4P4jCxZ5Ym8PIjNFJuqWzeXgztF6gUInllVtBUf0QPtlG2jfwcKwyMF-_0-eKIDqHNpxBzQCLtghGCg"
 
 --- received ---
 200 OK
@@ -86,19 +73,19 @@ transfer-encoding:chunked
   "agent_token": {
     "iss": "https://ap.atf-demo.local",
     "sub": "aauth:planner@ap.atf-demo.local",
-    "jti": "788e71e2-3b4c-4fad-af56-ab4ed84a6aa8",
-    "iat": 1788720150,
-    "exp": 1788723750,
+    "jti": "49a526f8-4c34-4a43-bd1e-4d589d800d1d",
+    "iat": 1788720928,
+    "exp": 1788724528,
     "established_by": "the agent provider, whose signature this resource verified"
   },
   "atf": {
     "profile": "csa-atf:0.9.1",
     "level": "senior",
-    "exp": 1788723750,
+    "exp": 1788724528,
     "sequence": 42,
     "appraisal_id": "urn:uuid:f398589fc587869a9541b61c9ba19908",
     "appraisal_issuer": "https://demo.verifiedagents.ai",
-    "appraisal_hash": "sha256:d8ee0f0d41e4c7844b245f08ea1d1c75d841da10362ce0646a812f844580ad3f",
+    "appraisal_hash": "sha256:71940aab633128c4852d3ea6eab5afa5ab16eaf282aea1b46d8d79d70d8aba6d",
     "evidence_hash": "sha256:be134c879a16ac04dc7527889b6f4fb1b92994dc6274778a79e45a1aa59f4fd2",
     "appraisal_subject": "spiffe://example.org/agent/planner",
     "workload_id": "spiffe://example.org/agent/planner",
@@ -130,29 +117,31 @@ CASE 2 of 4: tampered — atf.level raised senior -> principal
 $ node client.mjs --case=tampered --url http://localhost:8787/agent/echo
 --- sent ---
 GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720173
-signature:        sig=:4ql+h4M2Vh6dBsIKzc71sWyefGhl4UF6l7ex89h6PIEvev9kOL0mZRQ2S2csU9Cs8GEwe+YBzIjWDTyzRl9tDQ==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNWJiNDdiODJmYTYzODAwZSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI4NDlkMTJkZC00ZmI0LTQ0MTItYmJjOS02YmU5NjNjMjZlNzkiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoiMUt5dWRQd0lZWnFGc0ZJdl9IbVg1U21vRGF1dkFrV1F0RTh6YkVFNGdDNCIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDE1MCwiZXhwIjoxNzg4NzIzNzUwLCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InByaW5jaXBhbCIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OmQ4ZWUwZjBkNDFlNGM3ODQ0YjI0NWYwOGVhMWQxYzc1ZDg0MWRhMTAzNjJjZTA2NDZhODEyZjg0NDU4MGFkM2YiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyMzc1MCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.lovk5YCf-U2J_7oiJEHRB4yfT7WcTm1f6_-m04bexHTkl2B09IS6haBV1DqQ7BVqPUYL4uu29jUDSksJlhOJDQ"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720997
+signature:        sig=:er7rbwH7lUyb+5YgeyA0x1Mbr3T4HPxuk2wfqYSlpLBLPOrSjXarVR4R8ACLztbUCgBm4ATlssBtNdoHNY9MAQ==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiIyMGJjMWEwNS1jZDk4LTQ2Y2QtYjFlOC1kNjQyMjQ4NDUxZjMiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoidUZDVlVTbjYzSEJxUVdXejEtb2tKNXlTZnRYQXpRMnk3dEVMS1l3ODRiRSIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InByaW5jaXBhbCIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OjcxOTQwYWFiNjMzMTI4YzQ4NTJkM2VhNmVhYjVhZmE1YWIxNmVhZjI4MmFlYTFiNDZkOGQ3OWQ3MGQ4YWJhNmQiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyNDUyOCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.AqtbexIOpaIDcUjNkML28j_vIQDsTsZmUz9WM12PF5g_xOLUirPxQzaBGTlFo435SxFDxZN_g_09g3VaEa6EAA"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-content-encoding: gzip
-content-type:     application/json
+content-type:     application/problem+json
 link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
 signature-error:  error=invalid_jwt
-transfer-encoding:chunked
 
 {
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
   "error": "invalid_jwt",
   "detail": "JWT signature verification failed: signature verification failed"
 }
   exit 1
 
 Refused by the signature check over the raw segments, before anything is
-parsed out of them. The same refusal Imran's own verifier gives, and the
+parsed out of them. The same refusal Imran’s own verifier gives, and the
 same registered code: the fix in summit PR #1, agreed on both sides.
+The body repeats the header’s code rather than naming one of its own.
 
 ================================================================
 CASE 3 of 4: no-atf — a valid agent token carrying no grade
@@ -160,58 +149,59 @@ CASE 3 of 4: no-atf — a valid agent token carrying no grade
 $ node client.mjs --case=no-atf --url http://localhost:8787/agent/echo
 --- sent ---
 GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720173
-signature:        sig=:B1+iaRMDWUdk8r0/s2ofSR7bj1QghtzcLfopiBg3gOqPZ8irjsfx49Umr+cprdaiI7sNvzuRhykX7c6zJUu7Aw==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNWJiNDdiODJmYTYzODAwZSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiJhMmNlNWM1ZS01MWJmLTQ0MGEtYjUxOC05MzFjYTBkOGNiZTgiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoiaC1ZX2RDUmg3cGM1RkxUVTQ4bHJieE1jbzZhZGFRZXVpQzR0ckpnM19PVSIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDE1MCwiZXhwIjoxNzg4NzIzNzUwfQ.93nePJkgVGLbP6pPI8c_w_BM4QKkJ2nlFFy-JHfbYauRXFNUfWDRXX5LAA8Tp8LdrwuQpd1rBt04xvpWgbIsCg"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720997
+signature:        sig=:xH/HmDpSfXDNUN/nA8Ns+jA3UwveudAVVAUsRa72y1r78eKxuRifpTEZxnxSK51buMCY8PrWu5hJ3ycL1Q3XBg==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiIzMDM2MjJhMi0zN2FkLTQxMzYtYWE2MC02ZDM1M2RhYThlYmEiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4Ijoia3J2TEM1ZjY4bW95NG9uNTVrc29aMjQ0NC1iN3hsS2k4cUZjRm9STjk2QSIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4fQ.rjDjV6VgxHNxF4fd-fze2Wxledt6ilCPgkpCcG21ks2ZU_q4-mm13U56wSxLgwqgzT4Xaj3LVGbmKT-GzLANDA"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-content-encoding: gzip
-content-type:     application/json
+content-type:     application/problem+json
 link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
-transfer-encoding:chunked
 
 {
-  "error": "agent_token_required",
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "error": "agent_token_insufficient",
   "detail": "agent token carries no https://agentictrustframework.ai/atf claim"
 }
   exit 1
 
-Nothing is wrong with this token. It just does not carry what the
-resource needs, and the agent can go and get one that does. The bare
-challenge says an AAuth agent token is required; the Link relation points
-at the document that says which profile and level. That the challenge
-cannot say so itself is AAuth issue #145.
+Nothing is wrong with this token. It is insufficient, not absent — a
+different fact from the unsigned case above, and the one the agent has to
+act on. The bare challenge says an AAuth agent token is required; the Link
+relation points at the document that says which profile and level. That the
+challenge cannot say so itself is AAuth issue #145.
 
 ================================================================
 CASE 4 of 4: expired — the same token, after its expiry
 ================================================================
-Minted with a 60-second lifetime and run after it lapsed, past the
-60-second clock skew tolerance both layers apply. Real clock: no
-backdating, no --at-time.
+Minted with a short lifetime and run past exp plus the 60-second clock
+skew tolerance both layers apply. Real clock: no backdating, no --at-time.
 $ date -u
-Sun Sep  6 18:44:40 UTC 2026
+Sun Sep  6 18:57:33 UTC 2026
 $ node client.mjs --case=expired --url http://localhost:8787/agent/echo
 --- sent ---
 GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720281
-signature:        sig=:xgHPZIweXUItKmBZjGnYPiEO1aLqjzeOdDk6VTcPsAtUSMuI7bkstbYTwv+90qLgebm5dQQQ9aG2zfSPE4IfDQ==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNWJiNDdiODJmYTYzODAwZSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiIwYjNjMzM5OS0yNjdmLTQzNGUtYmFhNi0wMDE2NTA2NGZiNDIiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoiREtubTB0dUotVE85S25OZkhfYmpDa01JUEVUa3poWGJ3QWFuc1pZOTBBOCIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDE1MCwiZXhwIjoxNzg4NzIwMjEwLCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OmQ4N2FlYThiZjMyNDE3YzA5YTdiODliYjc4OGNjMjc4ZjVjZDg4YzYyODY2YWUwZWZjMmVjNzZlNzE4MDVhNDciLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyMDIxMCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.Lo6a1HwhCIoP49EzTvl546SG2D4RBtPZ9Cb_sf9FeHn2w7zOZUm9QZAluYEq2kVhbOs66lNiEyYOn3nyXnZGBg"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788721053
+signature:        sig=:K/e+8QMvDAloLFRn2LJ9yEERGIOGQPGDLwh3tFyJUSNW9OCr4WJbqogc8SG2Fm1p0yGdAyGE02saER+Mj29rBg==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiJjNjA1YjI1ZC1iMDkzLTQ4MzMtOWRlMi0zNDQ1MmJmNzIyYjEiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoiS21rVmJOV2IyMm5uLUtyeU9neVpSNFdrb0JvS2xoR1FmNFZyVzBRbEJJMCIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzIwOTg4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OmI3OWU4ZjljNzJlMWE5ZWUxZmY3YjE3NGVjNTEzZWEzZWJhZWZjZmVmZjQ5NjRhNzgzZTJiYjFiNjhlNzA3YzMiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyMDk4OCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.KOlHIzdVdU1E4qDetmPb1eHRmCzcrsWwfbG8si1xJOhzbSCcVew-wAbb-16c9D3OvgTrAHlr5gzsf4rqvTWYDQ"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-content-encoding: gzip
-content-type:     application/json
+content-type:     application/problem+json
 link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
 signature-error:  error=expired_jwt
-transfer-encoding:chunked
 
 {
-  "error": "signature_verification_failed",
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "error": "expired_jwt",
   "detail": "JWT expired"
 }
   exit 1
@@ -222,19 +212,20 @@ The door still decides: GET /api/summarize, the same valid token
 $ node client.mjs --case=valid --url http://localhost:8787/api/summarize
 --- sent ---
 GET               http://localhost:8787/api/summarize
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720281
-signature:        sig=:UMbe65MAfQ9I7xxImi59Gh93y0qc4QYjq5F9W2B6SsHm40skInv+FVQZYe+bdEh1qi0SiWZF/fBQfDR8VNTgCg==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNWJiNDdiODJmYTYzODAwZSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI3ODhlNzFlMi0zYjRjLTRmYWQtYWY1Ni1hYjRlZDg0YTZhYTgiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoibXp5V0lZcjZyc2tjRW9rbklFN00xVVZXTkRDSWRCMlVfOU5ORkpWeV9WNCIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDE1MCwiZXhwIjoxNzg4NzIzNzUwLCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OmQ4ZWUwZjBkNDFlNGM3ODQ0YjI0NWYwOGVhMWQxYzc1ZDg0MWRhMTAzNjJjZTA2NDZhODEyZjg0NDU4MGFkM2YiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyMzc1MCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.MkK5TKww7OFNX8WPcEs43T1CKIsVusBqHpl3VDBdxFALb9eJoJSr5dz5ttbYNzfeoxv15RnymqXZ0BjAj7XDBg"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788721053
+signature:        sig=:f2jRlr2UrVYWaLKTISy+sC7M2R93j4u0q3vbjUNM91P53PIRUmYK02vdHKEmguzsFCl4+AKeblsg7BoH5dFUBA==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI0OWE1MjZmOC00YzM0LTRhNDMtYmQxZS00ZDU4OWQ4MDBkMWQiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoicEFEQ3Fta0tPTmFiY3JKV1FDdS1nRlNNcXRiUUVvZnFZSlJuX0k3SWtTbyIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OjcxOTQwYWFiNjMzMTI4YzQ4NTJkM2VhNmVhYjVhZmE1YWIxNmVhZjI4MmFlYTFiNDZkOGQ3OWQ3MGQ4YWJhNmQiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyNDUyOCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.5U9aiWp4P4jCxZ5Ym8PIjNFJuqWzeXgztF6gUInllVtBUf0QPtlG2jfwcKwyMF-_0-eKIDqHNpxBzQCLtghGCg"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=person-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-content-encoding: gzip
-content-type:     application/json
-transfer-encoding:chunked
+content-type:     application/problem+json
 
 {
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
   "error": "person_token_required",
   "detail": "ATF senior under csa-atf:0.9.1 was accepted. A qualifying level is eligibility for consideration, not permission. Present a person token for this resource."
 }
@@ -250,6 +241,9 @@ Summary
   tampered   401  Signature-Error: error=invalid_jwt
   no-atf     401  AAuth-Requirement: requirement=agent-token
   expired    401  Signature-Error: error=expired_jwt
+
+Every error body is application/problem+json, and where a Signature-Error
+header is present the body’s `error` repeats it.
 
 Not shown here: atf_subject_mismatch, atf_appraisal_superseded and
 atf_status_unavailable, the three refusals no fresh token repairs. They

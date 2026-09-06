@@ -102,10 +102,31 @@ with a bad `iss`, an alg disagreement and a failed signature, and documents that
 must branch on `code` and never on `message`. A missing `kid` therefore reports as
 `invalid_jwt` — true, but less specific than the registry allows.
 
+### Response bodies
+
+Every error response — 401 and 403 alike — is `application/problem+json` with an `error`
+member, per AAuth §Error Response Format.
+
+On a 401 the `Signature-Error` header remains the machine-readable carrier
+(§Authentication Errors), and the body's `error` repeats that header's code rather than
+naming one of its own, so the two can only ever agree. A body that disagrees with the
+header is read as a contradiction by anyone comparing them, which on an interop capture is
+the whole audience.
+
+Two 401 bodies name conditions the header cannot:
+
+| `error` | |
+|---------|---|
+| `agent_token_required` | Nothing was presented |
+| `agent_token_insufficient` | A valid agent token was presented; it does not carry what this resource requires |
+
+The distinction matters to the agent: one says sign your request, the other says go get a
+different token. A test pins them apart.
+
 ### 403 — resource-defined errors
 
-`application/problem+json` with an `error` member, per AAuth §Error Response Format. AAuth
-defines no error registry for resource endpoints, so these three are this resource's own:
+AAuth defines no error registry for resource endpoints, so these three are this resource's
+own:
 
 | `error` | |
 |---------|---|

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "harness": "node harness/setup.mjs"
+    "harness": "node harness/setup.mjs",
+    "capture": "node harness/capture.mjs"
   },
   "dependencies": {
     "@aauth/protocol": "^1.0.1",

@@ -178,7 +178,7 @@ async function gate(c: Context<HonoEnv>, config: Config): Promise<GateResult | R
       // Nothing presented. `AAuth-Requirement` says an AAuth agent token in
       // particular is wanted; `Accept-Signature` says what shape to sign in.
       emitVerifyFailed(c, 'no_signature')
-      return c.json({ error: 'agent_token_required' }, 401, {
+      return problem(c, 401, 'agent_token_required', 'no signature presented', {
         ...challengeHeaders(config),
         ...acceptSignatureHeaders(),
       })
@@ -200,16 +200,22 @@ async function gate(c: Context<HonoEnv>, config: Config): Promise<GateResult | R
       detail: sigResult.error,
       signature_error_code: sigResult.signatureError?.error,
     })
-    return c.json(
-      { error: 'signature_verification_failed', detail: sigResult.error },
+    // The body's `error` mirrors the Signature-Error header rather than
+    // naming a code of its own. The header is the machine-readable carrier
+    // (AAuth §Authentication Errors) and a body that disagrees with it is
+    // only ever read as a contradiction.
+    return problem(
+      c,
       401,
+      sigResult.signatureError?.error ?? 'invalid_signature',
+      sigResult.error,
       headers
     )
   }
 
   if (sigResult.keyType !== 'jwt' || !sigResult.jwt) {
     emitVerifyFailed(c, 'wrong_key_scheme', { actual_key_type: sigResult.keyType })
-    return c.json({ error: 'unsupported_scheme' }, 401, {
+    return problem(c, 401, 'unsupported_scheme', `Signature-Key scheme ${sigResult.keyType}`, {
       'Signature-Error': generateSignatureErrorHeader({ error: 'unsupported_scheme' }),
       ...challengeHeaders(config),
       'Accept-Signature-Scheme': generateAcceptSignatureSchemeHeader(['jwt']),
@@ -220,6 +226,33 @@ async function gate(c: Context<HonoEnv>, config: Config): Promise<GateResult | R
   return runGate(sigResult.jwt.raw, sigResult.thumbprint, typ, config)
 }
 
+/**
+ * Every error response, in one shape.
+ *
+ * AAuth §Error Response Format: bodies use RFC 9457 problem details with
+ * `application/problem+json` and an `error` member, and receivers determine
+ * how to proceed from `error`. On a 401 the `Signature-Error` header remains
+ * the machine-readable carrier (§Authentication Errors) — the body never
+ * contradicts it, and `error` here repeats the header's code when there is
+ * one so that the two can only ever agree.
+ */
+function problem(
+  c: Context<HonoEnv>,
+  status: 401 | 403,
+  error: string,
+  detail?: string,
+  headers: Record<string, string> = {}
+): Response {
+  const body: Record<string, unknown> = {
+    type: 'about:blank',
+    title: status === 401 ? 'Unauthorized' : 'Forbidden',
+    status,
+    error,
+  }
+  if (detail) body.detail = detail
+  return c.json(body, status, { ...headers, 'Content-Type': 'application/problem+json' })
+}
+
 /** Turn a gate failure into its response. */
 function refuse(
   c: Context<HonoEnv>,
@@ -228,7 +261,7 @@ function refuse(
 ): Response {
   if (result.kind === 'signature') {
     emitVerifyFailed(c, result.code, { detail: result.detail })
-    return c.json({ error: result.code, detail: result.detail }, 401, {
+    return problem(c, 401, result.code, result.detail, {
       'Signature-Error': generateSignatureErrorHeader({
         error: result.code as SignatureErrorCode,
       }),
@@ -241,9 +274,11 @@ function refuse(
     // challenge names what is wanted; the body says what was wrong with what
     // arrived. One response shape for every such condition.
     emitVerifyFailed(c, result.reason, { detail: result.detail })
-    return c.json(
-      { error: 'agent_token_required', detail: result.detail },
+    return problem(
+      c,
       401,
+      'agent_token_insufficient',
+      result.detail,
       challengeHeaders(config)
     )
   }
@@ -260,11 +295,7 @@ function refuse(
     atf_error: result.error,
     detail: result.detail,
   })
-  return c.json(
-    { type: 'about:blank', title: 'Forbidden', status: 403, error: result.error, detail: result.detail },
-    403,
-    { 'Content-Type': 'application/problem+json' }
-  )
+  return problem(c, 403, result.error, result.detail)
 }
 
 // ── GET /agent/echo — agent identity access ──
@@ -306,15 +337,13 @@ app.get('/api/summarize', async (c) => {
     atf_level: String(result.atf.level),
   })
 
-  return c.json(
-    {
-      error: 'person_token_required',
-      detail:
-        `ATF ${String(result.atf.level)} under ${String(result.atf.profile)} was accepted. ` +
-        'A qualifying level is eligibility for consideration, not permission. ' +
-        'Present a person token for this resource.',
-    },
+  return problem(
+    c,
     401,
+    'person_token_required',
+    `ATF ${String(result.atf.level)} under ${String(result.atf.profile)} was accepted. ` +
+      'A qualifying level is eligibility for consideration, not permission. ' +
+      'Present a person token for this resource.',
     { 'AAuth-Requirement': buildAAuthHeader('person-token') }
   )
 })

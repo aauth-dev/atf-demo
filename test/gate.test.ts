@@ -51,7 +51,16 @@ async function expectChallenge(res: Response) {
   expect(res.headers.get('Link')).toBe(
     `<${RESOURCE}/.well-known/aauth-resource.json>; rel="aauth-resource"`
   )
-  return (await res.json()) as Record<string, unknown>
+  // AAuth §Error Response Format: every error body is RFC 9457 problem
+  // details, on a 401 as much as on a 403.
+  expect(res.headers.get('Content-Type')).toContain('application/problem+json')
+  const body = (await res.json()) as Record<string, unknown>
+  // Where a Signature-Error is present the body must repeat it, never name a
+  // code of its own. A body that disagrees with the header is read as a
+  // contradiction by anyone comparing the two.
+  const sigError = res.headers.get('Signature-Error')
+  if (sigError) expect(`error=${String(body.error)}`).toBe(sigError)
+  return body
 }
 
 /** Assert a 403 problem+json carrying `error`, and none of the 401-only headers. */
@@ -136,8 +145,34 @@ describe('the four interop cases', () => {
     const res = await signedGet(agentKey, token)
 
     const body = await expectChallenge(res)
-    expect(body.error).toBe('agent_token_required')
+    // Not `agent_token_required`: a valid agent token was presented. It is
+    // insufficient for what this resource asks, which is a different fact and
+    // the one the agent has to act on. `agent_token_required` is reserved for
+    // a request that presented nothing.
+    expect(body.error).toBe('agent_token_insufficient')
     expect(String(body.detail)).toContain(ATF_CLAIM)
+  })
+
+  it('the two 401 bodies are distinguishable: absent vs insufficient', async () => {
+    const absent = await SELF.fetch(`${RESOURCE}/agent/echo`)
+    expect(absent.status).toBe(401)
+    expect(absent.headers.get('Content-Type')).toContain('application/problem+json')
+    expect(((await absent.json()) as any).error).toBe('agent_token_required')
+
+    const token = await mintAgentToken(apKey, agentKey, { atf: null })
+    const insufficient = await signedGet(agentKey, token)
+    expect(((await insufficient.json()) as any).error).toBe('agent_token_insufficient')
+  })
+
+  it('the expired body repeats the Signature-Error code, not a name of its own', async () => {
+    const t = now()
+    const token = await mintAgentToken(apKey, agentKey, {
+      payload: { iat: t - 7200, exp: t - 3600 },
+    })
+    const res = await signedGet(agentKey, token)
+
+    expect(res.headers.get('Signature-Error')).toBe('error=expired_jwt')
+    expect(((await res.json()) as any).error).toBe('expired_jwt')
   })
 })
 
