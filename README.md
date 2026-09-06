@@ -1,6 +1,9 @@
 # atf-demo.aauth.dev — an AAuth resource that reads an ATF grade
 
-Part of [AAuth](https://aauth.dev). The relying party of the CSA Verifiable Agent Summit chain:
+Part of [AAuth](https://aauth.dev). Runs at
+[atf-demo.aauth.dev](https://atf-demo.aauth.dev/.well-known/aauth-resource.json).
+
+The relying party of the CSA Verifiable Agent Summit chain:
 
 > TRACE is the evidence. ATF is the judgment. AAuth is the delivery.
 > The relying party still decides.
@@ -261,11 +264,28 @@ to any proxy that rewrites `Host`.
 
 ## Deployment
 
+Deployed to Cloudflare Workers as `atf-demo-aauth-dev-production`, on the custom domain
+`atf-demo.aauth.dev`.
+
 ```bash
 npm run deploy   # wrangler deploy --env production
 ```
 
-No secret to set: this resource holds no key.
+No secret to set: this resource holds no key. `--env production` is not optional — see the
+`@authority` note above.
+
+### What is verified in production
+
+The challenge path: an unsigned request to either endpoint returns the bare
+`requirement=agent-token` challenge with the `aauth-resource` link, `Accept-Signature`, and
+a problem+json body. Confirmed against the live origin.
+
+The 200 path is verified locally — 26 tests plus `transcript.txt` — and cannot be proven in
+production without an agent token from a provider this deployment trusts. `AGENT_PROVIDERS`
+lists only the summit agent provider, whose signing key is held by its operator. That
+provider's discovery and JWKS are reachable and correctly shaped (`issuer` matches, the key
+carries a `kid` and a fully-specified `alg`), so the discovery leg the live run depends on
+is known good.
 
 ## Tech stack
 
