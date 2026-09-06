@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "harness": "node harness/setup.mjs",
     "capture": "node harness/capture.mjs",
-    "deploy:ap": "wrangler deploy --config ap/wrangler.toml"
+    "harness:enclave": "node harness/setup.mjs --enclave"
   },
   "dependencies": {
     "@aauth/protocol": "^1.0.1",

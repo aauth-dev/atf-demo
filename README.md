@@ -276,16 +276,24 @@ No secret to set: this resource holds no key. `--env production` is not optional
 
 ### What is verified in production
 
-The challenge path: an unsigned request to either endpoint returns the bare
-`requirement=agent-token` challenge with the `aauth-resource` link, `Accept-Signature`, and
-a problem+json body. Confirmed against the live origin.
+All four cases, plus the person-token challenge. `transcript.txt` is that run.
 
-The 200 path is verified locally — 26 tests plus `transcript.txt` — and cannot be proven in
-production without an agent token from a provider this deployment trusts. `AGENT_PROVIDERS`
-lists only the summit agent provider, whose signing key is held by its operator. That
-provider's discovery and JWKS are reachable and correctly shaped (`issuer` matches, the key
-carries a `kid` and a fully-specified `alg`), so the discovery leg the live run depends on
-is known good.
+No agent provider is deployed to make it possible. `npm run harness -- --enclave` mints as
+`https://dickhardt.github.io`, whose discovery document and JWKS have been published since
+June and name a key whose private half is in that machine's Secure Enclave. The deployed
+resource resolves `{iss}/.well-known/{dwk}` over the public internet, checks the document's
+`issuer` against the identity it was fetched under, selects the key by `kid`, and verifies
+an ES256 signature. The whole discovery path runs for real against a static file that was
+already there.
+
+That root key is ES256 while the summit provider's is Ed25519 — the reason
+`supportedAlgorithms` is never narrowed.
+
+What this does not prove is interoperability: one party mints and verifies. That is Imran's
+provider signing and this resource verifying, and nothing here substitutes for it. The
+summit provider's discovery and JWKS were checked directly and are correctly shaped
+(`issuer` matches, the key carries a `kid` and a fully-specified `alg`), so the leg the live
+interop run depends on is known good.
 
 ## Tech stack
 

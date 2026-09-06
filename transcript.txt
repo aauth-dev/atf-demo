@@ -1,7 +1,7 @@
 atf-demo.aauth.dev — captured run
-Captured: 2026-09-06 19:38 UTC
+Captured: 2026-09-06 19:52 UTC
 Node: v22.22.3   Resource: https://atf-demo.aauth.dev
-Agent provider: https://ap.atf-demo.aauth.dev (harness/setup.mjs)
+Agent provider: https://dickhardt.github.io (harness/setup.mjs)
 
 Every byte below is machine-produced. harness/setup.mjs mints the tokens;
 client.mjs signs the requests and prints what it sent and what came back.
@@ -37,12 +37,12 @@ aauth-requirement:requirement=agent-token
 accept-signature: sig=("@method" "@authority" "@path" "signature-key")
 accept-signature-scheme:jwt
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-cf-ray:           a36feeef9f90e3c3-LIS
+cf-ray:           a37003c8ea3de3d0-LIS
 connection:       keep-alive
 content-type:     application/problem+json
 link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
 nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=RXS2mAnH6ud%2Bd%2FOriDrikQ2NvSCDLLqRyWYZ6mTetaJHZJbjPtQ5a21c4mjmuo27LjC2i%2FTFJ9CjawB%2BzMrBVtWfRaGPDvAf3zmxG5SegLIcqUYFNcOt8qfG0CM5b%2B8nyo%2F%2FHevDsgTJVdXWoe09Cw%3D%3D"}]}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=FAm7RA6w%2BCfg0e461MLQedYf0JFPRluGHz3BF0kd7g9OHRAo0S%2BlNrVLWJrnUj%2FuPWAFdnjBjDeP0zi3UAREXWZZBfBRP6UPtSJ7JJ5bvMYGAcgf7mR8xkTiEwhUwHdiKraQZbNipE0bgQBuYWnQtg%3D%3D"}]}
 server:           cloudflare
 
 {
@@ -62,40 +62,40 @@ CASE 1 of 4: valid — a fresh Senior token
 $ node client.mjs --case=valid --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
 GET               https://atf-demo.aauth.dev/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
-signature:        sig=:fuGCtjjtgonEJ5IV1aB2l+KBWR82TQJKaW+BNj0OSmVuwMCyO6CIEMWHSWZ67iWihD8qlPhiw9cGQO0Al7qwBw==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjIwNjQ4NDY3LWQ1NGQtNGVjOS1iODkzLTU0ZDM3MzJlMWQ3YyIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJiT3dVSHd4WXVvRzh0N3VYaVVaRzVnYVo1TDE0WmE4eHFadDQ0R0VEdGRVIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NDA3YzMwYmMzODZmN2Y2NTIzNTBiNjNmNzhiNTFhMGU4NmYyYmE4ODU2YTI5M2EwMWY0NDVhNGYzMGEzNzRmMSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI2ODU2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.4aLSzS_3jgAxccW1I4gSLpZ0D7nZHzZGXGq6CyAGeQp729_g7Iiaj0XiDdEhAclZYe5UPt1J3SQd0q9iHjn-CQ"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788724353
+signature:        sig=:x+zGysQdNSFfOLZ7sAzOs2rc2NmlI+5TeQBxt/Rl1jlSIyfE/19uNK0mILO1i+Hljcn4AjBjLhLDYJUCRC1CBw==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFUzI1NiIsInR5cCI6ImFhLWFnZW50K2p3dCIsImtpZCI6IjIwMjYtMDYtMTFfNTc3In0.eyJpc3MiOiJodHRwczovL2RpY2toYXJkdC5naXRodWIuaW8iLCJkd2siOiJhYXV0aC1hZ2VudC5qc29uIiwic3ViIjoiYWF1dGg6bG9jYWxAZGlja2hhcmR0LmdpdGh1Yi5pbyIsImp0aSI6ImQ4ZDE3MTg3LWFmMTItNDVkNi1hNGQ0LWUyMjdjNTg3NjgwOCIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJ6bGpMN2dJSm83Y2Y1aUNZLURmeUVFMGI5MU11am9oNmJwVHNtWnFiY3NzIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzI0MjEzLCJleHAiOjE3ODg3Mjc4MTMsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NmNmYWY0NGY4MzExOGQ1ZmQ1MmFiYjE5NDVjNTJmZjAzMTVmYmJiZjRmOGVjMTYwZTZjYTdkN2Y1MDA2MGY2NSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI3ODEzLCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.8T1TEBx00fh8zVQNyP3vazFsfmMZp1hfeXcHoFWmC25o3cO9slQwwEwv7VofBIzNmYFHA5HMHc5YytGyZtStyA"
 
 --- received ---
 200 OK
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-cf-ray:           a36feef04b08f369-LIS
+cf-ray:           a37003c99c540fee-LIS
 connection:       keep-alive
 content-encoding: br
 content-type:     application/json
 nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=zMgpVakDy2Xa9tG1sLYW647omJVaEsnHwvJdKwxagOZV0Reh00QIeG1rY9sfApnAH2zn%2B34%2FgXAX6%2BJHX1yMnkaMrlLLPIv6IY%2FY6cvIQ06LYzCvzn%2FzA1tYssOnL%2BY8zWIjg3%2FmB99aOohg0tbhnA%3D%3D"}]}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=w5pDIDAHFqH1k5Nfs682mFDdoLXIfXQm7KumOTzt49G857M%2BLqinumUfJdE6pLiJDIt8iOQZeo8EpU0yJcck%2FH7%2F%2F7p6Pww4SMe%2Fi7pqQfLG%2FxnTZRAlvxg%2FUOy0SBqVS2Parh%2BRcjxS4Q3YYpWYsQ%3D%3D"}]}
 server:           cloudflare
 transfer-encoding:chunked
 
 {
   "verified": true,
   "agent_token": {
-    "iss": "https://ap.atf-demo.aauth.dev",
-    "sub": "aauth:planner@ap.atf-demo.aauth.dev",
-    "jti": "20648467-d54d-4ec9-b893-54d3732e1d7c",
-    "iat": 1788723256,
-    "exp": 1788726856,
+    "iss": "https://dickhardt.github.io",
+    "sub": "aauth:local@dickhardt.github.io",
+    "jti": "d8d17187-af12-45d6-a4d4-e227c5876808",
+    "iat": 1788724213,
+    "exp": 1788727813,
     "established_by": "the agent provider, whose signature this resource verified"
   },
   "atf": {
     "profile": "csa-atf:0.9.1",
     "level": "senior",
-    "exp": 1788726856,
+    "exp": 1788727813,
     "sequence": 42,
     "appraisal_id": "urn:uuid:f398589fc587869a9541b61c9ba19908",
     "appraisal_issuer": "https://demo.verifiedagents.ai",
-    "appraisal_hash": "sha256:407c30bc386f7f652350b63f78b51a0e86f2ba8856a293a01f445a4f30a374f1",
+    "appraisal_hash": "sha256:6cfaf44f83118d5fd52abb1945c52ff0315fbbbf4f8ec160e6ca7d7f50060f65",
     "evidence_hash": "sha256:be134c879a16ac04dc7527889b6f4fb1b92994dc6274778a79e45a1aa59f4fd2",
     "appraisal_subject": "spiffe://example.org/agent/planner",
     "workload_id": "spiffe://example.org/agent/planner",
@@ -127,20 +127,20 @@ CASE 2 of 4: tampered — atf.level raised senior -> principal
 $ node client.mjs --case=tampered --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
 GET               https://atf-demo.aauth.dev/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
-signature:        sig=:8XkIFrXp4H2sKEoNAqXXwvRRwpqsCKx5h1UK/OIdexkLksx/lnL4Wb93UU0xAPgEEcIXKW4KxENO26OBM8kGDA==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjIyNmUwN2JlLTE1MzYtNDRiNi05NDM5LTdmZjZlY2U3MTBlNiIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJHXzVrX3YtQ0ZHLTJwbVRuY2VVSFAyRFR0aTFsOWtpcnh0QzdNdm1MMm9rIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoicHJpbmNpcGFsIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NDA3YzMwYmMzODZmN2Y2NTIzNTBiNjNmNzhiNTFhMGU4NmYyYmE4ODU2YTI5M2EwMWY0NDVhNGYzMGEzNzRmMSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI2ODU2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.dCWLIYYp7fpT6aTZvcydS_BzVIzguXS9KA3Q9cTbzCipGz0m7ZNS1q70OTlBk_n3vubN87skOTl4b3C9fQw6Bg"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788724353
+signature:        sig=:p4g7fQxJHDFaugrAG6//pJszvI9lXyKAUyBluKfYAONvthbiCYpqac79+maQyXN6Iey3SeX2dMke+Ke27qqNAw==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFUzI1NiIsInR5cCI6ImFhLWFnZW50K2p3dCIsImtpZCI6IjIwMjYtMDYtMTFfNTc3In0.eyJpc3MiOiJodHRwczovL2RpY2toYXJkdC5naXRodWIuaW8iLCJkd2siOiJhYXV0aC1hZ2VudC5qc29uIiwic3ViIjoiYWF1dGg6bG9jYWxAZGlja2hhcmR0LmdpdGh1Yi5pbyIsImp0aSI6Ijk5N2M4YzFhLTk3NDItNGUyYi05MWM3LTcwMzdiYTlhOWIwOSIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiI2eW5udUk3Z0dZSFhNcnlWWkZfQWs0M3RnUjQtcFJqRHRhN2dPOFFCVTFrIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzI0MjEzLCJleHAiOjE3ODg3Mjc4MTMsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoicHJpbmNpcGFsIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NmNmYWY0NGY4MzExOGQ1ZmQ1MmFiYjE5NDVjNTJmZjAzMTVmYmJiZjRmOGVjMTYwZTZjYTdkN2Y1MDA2MGY2NSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI3ODEzLCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.WxmRUIeph3JbBor2-1Ya-i2fd1DBO0GEKAbr6kmSI7huPzPS3MOyn7QZLRWR00O8HtxnnUZKV0R19t41zYOUXg"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-cf-ray:           a36feef0fd210c00-LIS
+cf-ray:           a37003ca3cc86924-LIS
 connection:       keep-alive
 content-type:     application/problem+json
 link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
 nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=xC14WDrXGxvyQy%2B1luhiRR783b8kx%2F%2FFXAugvmo%2Fb2a8LMPFitRmLFewjiznqWFlL9PhefzCzU6kzQpeDqeTPNJ70N3lbLxBNyWmZxo97DYGSCuOuByjSbrQMwRWekFz553rNl5DOMWEZsfLd%2BINXw%3D%3D"}]}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=WqaV8vQZ2Qm4pCWPOAcDviU1UImWuY1j7EHmQL%2BYXbhLT%2F5vBrlwrBmfU02Xoj3%2FvpwQpzzEZEq4jFtIYK%2BPwADps8quXxEqrcFPvrcsHwuIoIRfSEGl65KZelJUMLnfc%2FZzRfwlQTw7ovLKrG6sBg%3D%3D"}]}
 server:           cloudflare
 signature-error:  error=invalid_jwt
 
@@ -164,20 +164,20 @@ CASE 3 of 4: no-atf — a valid agent token carrying no grade
 $ node client.mjs --case=no-atf --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
 GET               https://atf-demo.aauth.dev/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
-signature:        sig=:v30yO2BGtMmjT/LSJp9s0V/JCOyeEaZx+62gnIQRC9ou9E1bx0YGW6GG9JmbBYexWhR36PBwk4GsK/Skj5FsDw==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6Ijg3OWNiNDRiLWExZjQtNGU2Yi1iNmM2LWFiMWYzZTI2MTliNiIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJubnQzaERFajBFcTlPSkpzWTBfTU5UOVdITGRXenpJa2xpc1hMcWItVkFZIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTZ9.C7-VmE8WMzhbGbVWlDkOLJnKKiT5Y_BymZ5tUbxeI9d-9acJEiTXlmdpeiWhGkWeNzl07rvDYOa_OUFD1a6bCQ"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788724353
+signature:        sig=:P0l4TqhJZyico5J0loL0HXRcprTv1m8MGVr/M0bbolXZOdXQFQkginRm26X9eP5aJBm30RhMF2/a5hRhQ5byDw==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFUzI1NiIsInR5cCI6ImFhLWFnZW50K2p3dCIsImtpZCI6IjIwMjYtMDYtMTFfNTc3In0.eyJpc3MiOiJodHRwczovL2RpY2toYXJkdC5naXRodWIuaW8iLCJkd2siOiJhYXV0aC1hZ2VudC5qc29uIiwic3ViIjoiYWF1dGg6bG9jYWxAZGlja2hhcmR0LmdpdGh1Yi5pbyIsImp0aSI6ImU4MWFjYmZhLWNmZDEtNDMxNS1iMDc5LWNlNzBiNWMxOGIyNSIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiI4Nmo1M1A0SzZqbXo4b0dBTC12TGZxSDRKT0M3ZUVZdTQ4YlVfS0RQLTlBIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzI0MjEzLCJleHAiOjE3ODg3Mjc4MTN9.kNKewCL_eLDpQL4gUAyH2_M2WlU1sHiNND1i56tVexHCrjbAVdvHc9yPddqfn6YOMTiCoRkHa_1JsQ1HrhcY9g"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-cf-ray:           a36feef1894d8e38-LIS
+cf-ray:           a37003cb4eb9e3cc-LIS
 connection:       keep-alive
 content-type:     application/problem+json
 link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
 nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=3U7ojOkuecP67yixrFRWnD5ueHBRFw%2BFHQToPFaoRLy3efhdTe2OgMUyEvpLaurkcnPABAk7hAS6vP0YHyOxQanN3DSVEwcr6KkYZ%2BWAi84S34sIkRe2W%2FppYE1P%2FqUOUOKV8xYT%2FvdUdn8miEwn8A%3D%3D"}]}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=HJRVGeMMdd3q9ZDg%2BXl8b1AnVU%2B4qQHdIHF3uFc6kydRI1D8xo9c7Rx5BXW5mcHBrCdT96IzCVKx5SEQp1zDYuEBmK1EBxVwoimE%2Fo4irO394mI0Pbf1ubax8XjgGqiEHMc0esxkARVZPe%2FCRzIoqw%3D%3D"}]}
 server:           cloudflare
 
 {
@@ -201,24 +201,24 @@ CASE 4 of 4: expired — the same token, after its expiry
 Minted with a short lifetime and run past exp plus the 60-second clock
 skew tolerance both layers apply. Real clock: no backdating, no --at-time.
 $ date -u
-Sun Sep  6 19:38:19 UTC 2026
+Sun Sep  6 19:52:33 UTC 2026
 $ node client.mjs --case=expired --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
 GET               https://atf-demo.aauth.dev/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
-signature:        sig=:KXnU+WcQ+MeNgko+BlihEczKbUfY/Qe1U+kFlxVv5U4n0lKveDQai9mZ90CmGkX0vvHM5LGlUsWO16QZbj8cDQ==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjE2MTI3MzA3LWNiYTQtNDU2Zi05MzUzLTZkOGFjZjBiNDQ2YiIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiI1MjhfbnJuX0gzajU3WXlKaVNrX0tJb09NckttSk43YW13YlpBZmhvd1drIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjMzMTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6YzE5NjUzZjI0MTcyZWI1NDQ0MTdlMzZiOTQyM2E3NDgzNzEwNjcyZDM3ZDdkOTgyNzUwYTU1OGM5ZjU4ODlmMyIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzIzMzE2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.gEkRpgvpiSlgiQfTFnHzsr93XU0VTMajKbGyI_K2utN6rB98IuT5jN-1SUUvl9jqhMjNiB--5dphZ4TmywEYCg"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788724353
+signature:        sig=:B2BPcMEbI6OzDPt1IBh+czZW4JZKQZEYXirqZe0dZzLJfmbJxhyY9xHnOg/uubChkVoAlPCaWXsowtjHMLSFCw==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFUzI1NiIsInR5cCI6ImFhLWFnZW50K2p3dCIsImtpZCI6IjIwMjYtMDYtMTFfNTc3In0.eyJpc3MiOiJodHRwczovL2RpY2toYXJkdC5naXRodWIuaW8iLCJkd2siOiJhYXV0aC1hZ2VudC5qc29uIiwic3ViIjoiYWF1dGg6bG9jYWxAZGlja2hhcmR0LmdpdGh1Yi5pbyIsImp0aSI6IjRhZmZkNWQ4LWUxNWYtNDA2MC1hMTk5LTJhNGNkMTRiZmMxNCIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJSS2VMQVg4MjFOSzVYQ3BEbXVHSHZuRUdlenpnOVJxUzlpMks3M3hiNUNvIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzI0MjEzLCJleHAiOjE3ODg3MjQyNzMsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6MmMxMmVmYzJjYmY0YmU4OTJmZjc4ZmU1NzhhNjNjYzU5MmJkYjRhMzQ3YTIxZDVjN2Y5ODcwZjM1ZjA0MmFhYiIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI0MjczLCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.YltsmKixEMydXw10nsCeZjkOs_NPIv-javtrVE3irDHTKhQD2ZxkW2dT5AUwwqJMr56LiZI2pHHnnyucQXVNYw"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-cf-ray:           a36feef23f597859-LIS
+cf-ray:           a37003cc0ff1df91-LIS
 connection:       keep-alive
 content-type:     application/problem+json
 link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
 nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=%2FIEBAHoBogQ6xenwE8SCF1KpuhIlwlDBOGt1UsjQhv55FL9Mt9rMqPS%2BaCHGFGPRdVDnOI8ZEmgtWokFBeXsKRhKTIqmTf1pZmJHVdf3lzm1Ctkt2%2FOT1uKv8go4VzZdwO6RHxm8%2FDE5nvDHdINc6g%3D%3D"}]}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=oRav3LpxkLa%2BBsbiXt8jZWLnW%2FZ2YnphsOdDkotwmZTCk80htT06pQVTbqmRVP4uJsQc57HI%2B7wXuEtM0hXSujvaf9JKps%2BKRVokYJK36dHR1gZLrF77JQ6Y6P8YhB11%2Bnt07eIJfAGDiurEgriSPA%3D%3D"}]}
 server:           cloudflare
 signature-error:  error=expired_jwt
 
@@ -237,19 +237,19 @@ The door still decides: GET /api/summarize, the same valid token
 $ node client.mjs --case=valid --url https://atf-demo.aauth.dev/api/summarize
 --- sent ---
 GET               https://atf-demo.aauth.dev/api/summarize
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
-signature:        sig=:gwg961OK7e8KwLREwwr3YZI7pILzFwv6rtmapG729ztvyeRmwwgaXZKqZoGdXzbk2YujQs7WKLbaYBpcVNZ7Dg==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjIwNjQ4NDY3LWQ1NGQtNGVjOS1iODkzLTU0ZDM3MzJlMWQ3YyIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJiT3dVSHd4WXVvRzh0N3VYaVVaRzVnYVo1TDE0WmE4eHFadDQ0R0VEdGRVIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NDA3YzMwYmMzODZmN2Y2NTIzNTBiNjNmNzhiNTFhMGU4NmYyYmE4ODU2YTI5M2EwMWY0NDVhNGYzMGEzNzRmMSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI2ODU2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.4aLSzS_3jgAxccW1I4gSLpZ0D7nZHzZGXGq6CyAGeQp729_g7Iiaj0XiDdEhAclZYe5UPt1J3SQd0q9iHjn-CQ"
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788724353
+signature:        sig=:vm0wedIf9EanQe6zDi6rdgvpxrydxknGZsOCk6syulrnoCckqXEHOfR/BPEyEmDzgqN5Rod2qDdTqCBXpglJBA==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFUzI1NiIsInR5cCI6ImFhLWFnZW50K2p3dCIsImtpZCI6IjIwMjYtMDYtMTFfNTc3In0.eyJpc3MiOiJodHRwczovL2RpY2toYXJkdC5naXRodWIuaW8iLCJkd2siOiJhYXV0aC1hZ2VudC5qc29uIiwic3ViIjoiYWF1dGg6bG9jYWxAZGlja2hhcmR0LmdpdGh1Yi5pbyIsImp0aSI6ImQ4ZDE3MTg3LWFmMTItNDVkNi1hNGQ0LWUyMjdjNTg3NjgwOCIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJ6bGpMN2dJSm83Y2Y1aUNZLURmeUVFMGI5MU11am9oNmJwVHNtWnFiY3NzIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzI0MjEzLCJleHAiOjE3ODg3Mjc4MTMsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NmNmYWY0NGY4MzExOGQ1ZmQ1MmFiYjE5NDVjNTJmZjAzMTVmYmJiZjRmOGVjMTYwZTZjYTdkN2Y1MDA2MGY2NSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI3ODEzLCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.8T1TEBx00fh8zVQNyP3vazFsfmMZp1hfeXcHoFWmC25o3cO9slQwwEwv7VofBIzNmYFHA5HMHc5YytGyZtStyA"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=person-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-cf-ray:           a36feef2e96bf369-LIS
+cf-ray:           a37003ccab6b7072-LIS
 connection:       keep-alive
 content-type:     application/problem+json
 nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=nzBdV8spOK7eYtrObourc1BUrSv%2Bv7QWgAzMIqYn083icw5MUfHlGAj9WZ3vvA5Et%2Bbud9ybGppaW1IxIzl9wDptbtTaTTVffThBMcfFiVS7VfJC2bFS%2FkriiQAPyxtOY0TsREmrh2oqEtZHIcM1Sw%3D%3D"}]}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=jS4hKvz7e2NKblhYhUJSBC9n1FGfOGZwNnYyAxe%2F6YxpKpBlCHYaXOxYSGgVyw33HQJIAzilXBNF1JOj9s259%2Bogu4GcsMQL70uhSUEQ%2BLYaGocfrSbtOhqM%2Fvh4xUytILrEi6uwza1%2F5wN9aoEaIA%3D%3D"}]}
 server:           cloudflare
 
 {
