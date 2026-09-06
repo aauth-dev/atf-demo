@@ -14,7 +14,7 @@ enabled = true
 [vars]
 ORIGIN = "https://atf-demo.aauth.dev"
 # The summit agent provider. Comma-separated to add others.
-AGENT_PROVIDERS = "https://verifiable-agent-summit-provider.vercel.app"
+AGENT_PROVIDERS = "https://verifiable-agent-summit-provider.vercel.app,https://dickhardt.github.io,https://ap.atf-demo.aauth.dev"
 # "bare" (AAuth as written) or "params" (atf-* on the challenge). See src/atf.ts.
 ATF_CHALLENGE_CARRIER = "bare"
 
@@ -34,11 +34,15 @@ binding = "EVENTS_QUEUE"
 # agent provider it stands up; that file is gitignored and never deployed.
 
 [env.production]
-vars = { ORIGIN = "https://atf-demo.aauth.dev", AGENT_PROVIDERS = "https://verifiable-agent-summit-provider.vercel.app", ATF_CHALLENGE_CARRIER = "bare" }
+vars = { ORIGIN = "https://atf-demo.aauth.dev", AGENT_PROVIDERS = "https://verifiable-agent-summit-provider.vercel.app,https://dickhardt.github.io,https://ap.atf-demo.aauth.dev", ATF_CHALLENGE_CARRIER = "bare" }
 
 [[env.production.routes]]
 pattern = "atf-demo.aauth.dev"
 custom_domain = true
+
+# The test agent provider is a SEPARATE worker: ap/wrangler.toml, deployed
+# with `npm run deploy:ap`. It cannot live here — a Worker cannot subrequest
+# its own route, and this resource fetches that discovery document.
 
 [[env.production.queues.producers]]
 queue = "aauth-events"

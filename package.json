@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "harness": "node harness/setup.mjs",
-    "capture": "node harness/capture.mjs"
+    "capture": "node harness/capture.mjs",
+    "deploy:ap": "wrangler deploy --config ap/wrangler.toml"
   },
   "dependencies": {
     "@aauth/protocol": "^1.0.1",

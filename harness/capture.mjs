@@ -50,6 +50,11 @@ const section = (title) => {
 }
 
 const cases = JSON.parse(fs.readFileSync(path.join(HERE, 'out/cases.json'), 'utf8'))
+// Read the provider out of the tokens rather than naming it here. The
+// transcript is evidence; a hardcoded header can disagree with the run.
+const apIssuer = JSON.parse(
+  Buffer.from(cases.valid.token.split('.')[1], 'base64url')
+).iss
 const expiredExp = JSON.parse(
   Buffer.from(cases.expired.token.split('.')[1], 'base64url')
 ).exp
@@ -57,7 +62,7 @@ const expiredExp = JSON.parse(
 say('atf-demo.aauth.dev — captured run')
 say(`Captured: ${new Date().toISOString().replace('T', ' ').slice(0, 16)} UTC`)
 say(`Node: ${process.version}   Resource: ${url}`)
-say('Agent provider: https://ap.atf-demo.local (local, harness/setup.mjs)')
+say(`Agent provider: ${apIssuer} (harness/setup.mjs)`)
 say('')
 say('Every byte below is machine-produced. harness/setup.mjs mints the tokens;')
 say('client.mjs signs the requests and prints what it sent and what came back.')

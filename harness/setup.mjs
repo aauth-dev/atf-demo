@@ -33,18 +33,37 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const AP_HOME = path.join(HERE, 'ap')
+const AP_HOME_ROOT = path.join(HERE, 'ap')
 const OUT = path.join(HERE, 'out')
 
 // The local agent provider's issuer. provider.mjs requires an HTTPS origin
 // with no path; this one does not resolve in DNS, which is exactly why the
 // resource needs AGENT_PROVIDER_JWKS to verify tokens from it.
-export const AP_ISSUER = 'https://ap.atf-demo.local'
-export const RESOURCE = 'http://localhost:8787'
+// Two providers, because two things need proving.
+//
+//   ap.atf-demo.local     does not resolve in DNS. Nothing can fetch its
+//                         keys, which is exactly why the local resource needs
+//                         AGENT_PROVIDER_JWKS. Fast, offline, no deploy.
+//
+//   ap.atf-demo.aauth.dev resolves. The deployed resource fetches its
+//                         discovery document and JWKS over the public
+//                         internet and selects the key by `kid`, so the real
+//                         discovery path is exercised rather than overridden.
+//
+// Pick with AP_ISSUER, or `--public`. The provider key persists under
+// harness/ap/<host>/private/, so the published JWKS stays valid across runs.
+const PUBLIC_AP = 'https://ap.atf-demo.aauth.dev'
+export const AP_ISSUER =
+  process.env.AP_ISSUER ??
+  (process.argv.includes('--public') ? PUBLIC_AP : 'https://ap.atf-demo.local')
+export const RESOURCE =
+  process.env.RESOURCE_URL ??
+  (AP_ISSUER === PUBLIC_AP ? 'https://atf-demo.aauth.dev' : 'http://localhost:8787')
 
 // provider.mjs reads SUMMIT_PROVIDER_HOME to decide where to put private/,
 // public/ and out/. Set it before importing so nothing lands in the summit
 // repository.
+const AP_HOME = path.join(AP_HOME_ROOT, new URL(AP_ISSUER).hostname)
 process.env.SUMMIT_PROVIDER_HOME = AP_HOME
 
 const { initialize, issue } = await import('./provider.mjs')
@@ -76,7 +95,9 @@ function currentAppraisal(now, lifetime) {
 
 async function main() {
   fs.rmSync(OUT, { recursive: true, force: true })
-  fs.rmSync(AP_HOME, { recursive: true, force: true })
+  // AP_HOME is deliberately not wiped. provider.mjs persists its signing key
+  // there, and rotating it would invalidate the JWKS already published at
+  // ap/jwks.json — every previously issued token with it.
 
   // 1. The agent provider: generate its key, write its discovery documents.
   initialize(AP_ISSUER)
@@ -145,7 +166,16 @@ async function main() {
 
   writeJson(path.join(OUT, 'cases.json'), cases)
 
-  // 6. The dev override the resource needs to verify tokens from an issuer
+  // 6. The public half of the provider, for the worker to serve at
+  //    ap.atf-demo.aauth.dev. Only ever the JWKS and the discovery document —
+  //    the signing key stays under harness/ap/, which is gitignored. This is
+  //    committed so a deploy can serve it without the harness having run.
+  if (AP_ISSUER.startsWith('https://ap.atf-demo.aauth.dev')) {
+    writeJson(path.join(HERE, '..', 'ap', 'jwks.json'), jwks)
+    console.log('wrote ap/jwks.json (public key only) — commit and deploy to publish it')
+  }
+
+  // 7. The dev override the resource needs to verify tokens from an issuer
   //    that does not resolve. Written as .dev.vars, which wrangler dev reads
   //    and which is gitignored.
   const devVars = [

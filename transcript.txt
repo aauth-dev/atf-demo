@@ -1,7 +1,7 @@
 atf-demo.aauth.dev — captured run
-Captured: 2026-09-06 18:56 UTC
-Node: v22.22.3   Resource: http://localhost:8787
-Agent provider: https://ap.atf-demo.local (local, harness/setup.mjs)
+Captured: 2026-09-06 19:38 UTC
+Node: v22.22.3   Resource: https://atf-demo.aauth.dev
+Agent provider: https://ap.atf-demo.aauth.dev (harness/setup.mjs)
 
 Every byte below is machine-produced. harness/setup.mjs mints the tokens;
 client.mjs signs the requests and prints what it sent and what came back.
@@ -16,8 +16,8 @@ assertion, held on the provider’s authority. See harness/setup.mjs.
 ================================================================
 0. What the resource says it requires
 ================================================================
-$ curl -s http://localhost:8787/.well-known/aauth-resource.json
-{"issuer":"http://localhost:8787","access_mode":"agent-token","name":"ATF Demo Resource","description":"The relying party of the CSA Verifiable Agent Summit chain. It accepts an AAuth agent token carrying a signed ATF grade, verifies the agent provider and reads the grade the provider vouches for, then decides for itself. `GET /agent/echo` reports what it verified; `GET /api/summarize` applies the same gate and then challenges for a person token, because a qualifying level is eligibility for consideration and not permission.","documentation_uri":"https://github.com/aauth-dev/atf-demo","https://agentictrustframework.ai/policy":{"profiles":["csa-atf:0.9.1"],"minimum_level":"senior","evaluators":["https://demo.verifiedagents.ai"],"status_channel":"https://demo.verifiedagents.ai/status/atf","on_status_unreachable":"fail_closed"}}
+$ curl -s https://atf-demo.aauth.dev/.well-known/aauth-resource.json
+{"issuer":"https://atf-demo.aauth.dev","access_mode":"agent-token","name":"ATF Demo Resource","description":"The relying party of the CSA Verifiable Agent Summit chain. It accepts an AAuth agent token carrying a signed ATF grade, verifies the agent provider and reads the grade the provider vouches for, then decides for itself. `GET /agent/echo` reports what it verified; `GET /api/summarize` applies the same gate and then challenges for a person token, because a qualifying level is eligibility for consideration and not permission.","documentation_uri":"https://github.com/aauth-dev/atf-demo","https://agentictrustframework.ai/policy":{"profiles":["csa-atf:0.9.1"],"minimum_level":"senior","evaluators":["https://demo.verifiedagents.ai"],"status_channel":"https://demo.verifiedagents.ai/status/atf","on_status_unreachable":"fail_closed"}}
 
 The ATF requirement lives under the namespace ATF owns. There is no
 jwks_uri: this resource issues no tokens and signs no calls, so it
@@ -26,9 +26,9 @@ publishes no keys and holds no secret.
 ================================================================
 No credentials — the bare challenge
 ================================================================
-$ node client.mjs --case=none --url http://localhost:8787/agent/echo
+$ node client.mjs --case=none --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
-GET               http://localhost:8787/agent/echo
+GET               https://atf-demo.aauth.dev/agent/echo
 (unsigned — no Signature, Signature-Input or Signature-Key)
 
 --- received ---
@@ -37,8 +37,13 @@ aauth-requirement:requirement=agent-token
 accept-signature: sig=("@method" "@authority" "@path" "signature-key")
 accept-signature-scheme:jwt
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
+cf-ray:           a36feeef9f90e3c3-LIS
+connection:       keep-alive
 content-type:     application/problem+json
-link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
+link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
+nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=RXS2mAnH6ud%2Bd%2FOriDrikQ2NvSCDLLqRyWYZ6mTetaJHZJbjPtQ5a21c4mjmuo27LjC2i%2FTFJ9CjawB%2BzMrBVtWfRaGPDvAf3zmxG5SegLIcqUYFNcOt8qfG0CM5b%2B8nyo%2F%2FHevDsgTJVdXWoe09Cw%3D%3D"}]}
+server:           cloudflare
 
 {
   "type": "about:blank",
@@ -54,38 +59,43 @@ Nothing was presented, and the body says exactly that: agent_token_required.
 ================================================================
 CASE 1 of 4: valid — a fresh Senior token
 ================================================================
-$ node client.mjs --case=valid --url http://localhost:8787/agent/echo
+$ node client.mjs --case=valid --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
-GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720997
-signature:        sig=:XzkV05KHJQziS6Eu7bXznOzbOLuuzQEsQIiWfPukGhLGkLJYrxeCtofD0Mvj8IFhbZ0tolIihPkydubQekDdDQ==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI0OWE1MjZmOC00YzM0LTRhNDMtYmQxZS00ZDU4OWQ4MDBkMWQiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoicEFEQ3Fta0tPTmFiY3JKV1FDdS1nRlNNcXRiUUVvZnFZSlJuX0k3SWtTbyIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OjcxOTQwYWFiNjMzMTI4YzQ4NTJkM2VhNmVhYjVhZmE1YWIxNmVhZjI4MmFlYTFiNDZkOGQ3OWQ3MGQ4YWJhNmQiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyNDUyOCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.5U9aiWp4P4jCxZ5Ym8PIjNFJuqWzeXgztF6gUInllVtBUf0QPtlG2jfwcKwyMF-_0-eKIDqHNpxBzQCLtghGCg"
+GET               https://atf-demo.aauth.dev/agent/echo
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
+signature:        sig=:fuGCtjjtgonEJ5IV1aB2l+KBWR82TQJKaW+BNj0OSmVuwMCyO6CIEMWHSWZ67iWihD8qlPhiw9cGQO0Al7qwBw==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjIwNjQ4NDY3LWQ1NGQtNGVjOS1iODkzLTU0ZDM3MzJlMWQ3YyIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJiT3dVSHd4WXVvRzh0N3VYaVVaRzVnYVo1TDE0WmE4eHFadDQ0R0VEdGRVIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NDA3YzMwYmMzODZmN2Y2NTIzNTBiNjNmNzhiNTFhMGU4NmYyYmE4ODU2YTI5M2EwMWY0NDVhNGYzMGEzNzRmMSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI2ODU2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.4aLSzS_3jgAxccW1I4gSLpZ0D7nZHzZGXGq6CyAGeQp729_g7Iiaj0XiDdEhAclZYe5UPt1J3SQd0q9iHjn-CQ"
 
 --- received ---
 200 OK
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
-content-encoding: gzip
+cf-ray:           a36feef04b08f369-LIS
+connection:       keep-alive
+content-encoding: br
 content-type:     application/json
+nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=zMgpVakDy2Xa9tG1sLYW647omJVaEsnHwvJdKwxagOZV0Reh00QIeG1rY9sfApnAH2zn%2B34%2FgXAX6%2BJHX1yMnkaMrlLLPIv6IY%2FY6cvIQ06LYzCvzn%2FzA1tYssOnL%2BY8zWIjg3%2FmB99aOohg0tbhnA%3D%3D"}]}
+server:           cloudflare
 transfer-encoding:chunked
 
 {
   "verified": true,
   "agent_token": {
-    "iss": "https://ap.atf-demo.local",
-    "sub": "aauth:planner@ap.atf-demo.local",
-    "jti": "49a526f8-4c34-4a43-bd1e-4d589d800d1d",
-    "iat": 1788720928,
-    "exp": 1788724528,
+    "iss": "https://ap.atf-demo.aauth.dev",
+    "sub": "aauth:planner@ap.atf-demo.aauth.dev",
+    "jti": "20648467-d54d-4ec9-b893-54d3732e1d7c",
+    "iat": 1788723256,
+    "exp": 1788726856,
     "established_by": "the agent provider, whose signature this resource verified"
   },
   "atf": {
     "profile": "csa-atf:0.9.1",
     "level": "senior",
-    "exp": 1788724528,
+    "exp": 1788726856,
     "sequence": 42,
     "appraisal_id": "urn:uuid:f398589fc587869a9541b61c9ba19908",
     "appraisal_issuer": "https://demo.verifiedagents.ai",
-    "appraisal_hash": "sha256:71940aab633128c4852d3ea6eab5afa5ab16eaf282aea1b46d8d79d70d8aba6d",
+    "appraisal_hash": "sha256:407c30bc386f7f652350b63f78b51a0e86f2ba8856a293a01f445a4f30a374f1",
     "evidence_hash": "sha256:be134c879a16ac04dc7527889b6f4fb1b92994dc6274778a79e45a1aa59f4fd2",
     "appraisal_subject": "spiffe://example.org/agent/planner",
     "workload_id": "spiffe://example.org/agent/planner",
@@ -114,19 +124,24 @@ transfer-encoding:chunked
 ================================================================
 CASE 2 of 4: tampered — atf.level raised senior -> principal
 ================================================================
-$ node client.mjs --case=tampered --url http://localhost:8787/agent/echo
+$ node client.mjs --case=tampered --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
-GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720997
-signature:        sig=:er7rbwH7lUyb+5YgeyA0x1Mbr3T4HPxuk2wfqYSlpLBLPOrSjXarVR4R8ACLztbUCgBm4ATlssBtNdoHNY9MAQ==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiIyMGJjMWEwNS1jZDk4LTQ2Y2QtYjFlOC1kNjQyMjQ4NDUxZjMiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoidUZDVlVTbjYzSEJxUVdXejEtb2tKNXlTZnRYQXpRMnk3dEVMS1l3ODRiRSIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InByaW5jaXBhbCIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OjcxOTQwYWFiNjMzMTI4YzQ4NTJkM2VhNmVhYjVhZmE1YWIxNmVhZjI4MmFlYTFiNDZkOGQ3OWQ3MGQ4YWJhNmQiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyNDUyOCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.AqtbexIOpaIDcUjNkML28j_vIQDsTsZmUz9WM12PF5g_xOLUirPxQzaBGTlFo435SxFDxZN_g_09g3VaEa6EAA"
+GET               https://atf-demo.aauth.dev/agent/echo
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
+signature:        sig=:8XkIFrXp4H2sKEoNAqXXwvRRwpqsCKx5h1UK/OIdexkLksx/lnL4Wb93UU0xAPgEEcIXKW4KxENO26OBM8kGDA==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjIyNmUwN2JlLTE1MzYtNDRiNi05NDM5LTdmZjZlY2U3MTBlNiIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJHXzVrX3YtQ0ZHLTJwbVRuY2VVSFAyRFR0aTFsOWtpcnh0QzdNdm1MMm9rIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoicHJpbmNpcGFsIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NDA3YzMwYmMzODZmN2Y2NTIzNTBiNjNmNzhiNTFhMGU4NmYyYmE4ODU2YTI5M2EwMWY0NDVhNGYzMGEzNzRmMSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI2ODU2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.dCWLIYYp7fpT6aTZvcydS_BzVIzguXS9KA3Q9cTbzCipGz0m7ZNS1q70OTlBk_n3vubN87skOTl4b3C9fQw6Bg"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
+cf-ray:           a36feef0fd210c00-LIS
+connection:       keep-alive
 content-type:     application/problem+json
-link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
+link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
+nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=xC14WDrXGxvyQy%2B1luhiRR783b8kx%2F%2FFXAugvmo%2Fb2a8LMPFitRmLFewjiznqWFlL9PhefzCzU6kzQpeDqeTPNJ70N3lbLxBNyWmZxo97DYGSCuOuByjSbrQMwRWekFz553rNl5DOMWEZsfLd%2BINXw%3D%3D"}]}
+server:           cloudflare
 signature-error:  error=invalid_jwt
 
 {
@@ -146,19 +161,24 @@ The body repeats the header’s code rather than naming one of its own.
 ================================================================
 CASE 3 of 4: no-atf — a valid agent token carrying no grade
 ================================================================
-$ node client.mjs --case=no-atf --url http://localhost:8787/agent/echo
+$ node client.mjs --case=no-atf --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
-GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788720997
-signature:        sig=:xH/HmDpSfXDNUN/nA8Ns+jA3UwveudAVVAUsRa72y1r78eKxuRifpTEZxnxSK51buMCY8PrWu5hJ3ycL1Q3XBg==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiIzMDM2MjJhMi0zN2FkLTQxMzYtYWE2MC02ZDM1M2RhYThlYmEiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4Ijoia3J2TEM1ZjY4bW95NG9uNTVrc29aMjQ0NC1iN3hsS2k4cUZjRm9STjk2QSIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4fQ.rjDjV6VgxHNxF4fd-fze2Wxledt6ilCPgkpCcG21ks2ZU_q4-mm13U56wSxLgwqgzT4Xaj3LVGbmKT-GzLANDA"
+GET               https://atf-demo.aauth.dev/agent/echo
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
+signature:        sig=:v30yO2BGtMmjT/LSJp9s0V/JCOyeEaZx+62gnIQRC9ou9E1bx0YGW6GG9JmbBYexWhR36PBwk4GsK/Skj5FsDw==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6Ijg3OWNiNDRiLWExZjQtNGU2Yi1iNmM2LWFiMWYzZTI2MTliNiIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJubnQzaERFajBFcTlPSkpzWTBfTU5UOVdITGRXenpJa2xpc1hMcWItVkFZIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTZ9.C7-VmE8WMzhbGbVWlDkOLJnKKiT5Y_BymZ5tUbxeI9d-9acJEiTXlmdpeiWhGkWeNzl07rvDYOa_OUFD1a6bCQ"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
+cf-ray:           a36feef1894d8e38-LIS
+connection:       keep-alive
 content-type:     application/problem+json
-link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
+link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
+nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=3U7ojOkuecP67yixrFRWnD5ueHBRFw%2BFHQToPFaoRLy3efhdTe2OgMUyEvpLaurkcnPABAk7hAS6vP0YHyOxQanN3DSVEwcr6KkYZ%2BWAi84S34sIkRe2W%2FppYE1P%2FqUOUOKV8xYT%2FvdUdn8miEwn8A%3D%3D"}]}
+server:           cloudflare
 
 {
   "type": "about:blank",
@@ -181,20 +201,25 @@ CASE 4 of 4: expired — the same token, after its expiry
 Minted with a short lifetime and run past exp plus the 60-second clock
 skew tolerance both layers apply. Real clock: no backdating, no --at-time.
 $ date -u
-Sun Sep  6 18:57:33 UTC 2026
-$ node client.mjs --case=expired --url http://localhost:8787/agent/echo
+Sun Sep  6 19:38:19 UTC 2026
+$ node client.mjs --case=expired --url https://atf-demo.aauth.dev/agent/echo
 --- sent ---
-GET               http://localhost:8787/agent/echo
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788721053
-signature:        sig=:K/e+8QMvDAloLFRn2LJ9yEERGIOGQPGDLwh3tFyJUSNW9OCr4WJbqogc8SG2Fm1p0yGdAyGE02saER+Mj29rBg==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiJjNjA1YjI1ZC1iMDkzLTQ4MzMtOWRlMi0zNDQ1MmJmNzIyYjEiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoiS21rVmJOV2IyMm5uLUtyeU9neVpSNFdrb0JvS2xoR1FmNFZyVzBRbEJJMCIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzIwOTg4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OmI3OWU4ZjljNzJlMWE5ZWUxZmY3YjE3NGVjNTEzZWEzZWJhZWZjZmVmZjQ5NjRhNzgzZTJiYjFiNjhlNzA3YzMiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyMDk4OCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.KOlHIzdVdU1E4qDetmPb1eHRmCzcrsWwfbG8si1xJOhzbSCcVew-wAbb-16c9D3OvgTrAHlr5gzsf4rqvTWYDQ"
+GET               https://atf-demo.aauth.dev/agent/echo
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
+signature:        sig=:KXnU+WcQ+MeNgko+BlihEczKbUfY/Qe1U+kFlxVv5U4n0lKveDQai9mZ90CmGkX0vvHM5LGlUsWO16QZbj8cDQ==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjE2MTI3MzA3LWNiYTQtNDU2Zi05MzUzLTZkOGFjZjBiNDQ2YiIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiI1MjhfbnJuX0gzajU3WXlKaVNrX0tJb09NckttSk43YW13YlpBZmhvd1drIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjMzMTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6YzE5NjUzZjI0MTcyZWI1NDQ0MTdlMzZiOTQyM2E3NDgzNzEwNjcyZDM3ZDdkOTgyNzUwYTU1OGM5ZjU4ODlmMyIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzIzMzE2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.gEkRpgvpiSlgiQfTFnHzsr93XU0VTMajKbGyI_K2utN6rB98IuT5jN-1SUUvl9jqhMjNiB--5dphZ4TmywEYCg"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=agent-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
+cf-ray:           a36feef23f597859-LIS
+connection:       keep-alive
 content-type:     application/problem+json
-link:             <http://localhost:8787/.well-known/aauth-resource.json>; rel="aauth-resource"
+link:             <https://atf-demo.aauth.dev/.well-known/aauth-resource.json>; rel="aauth-resource"
+nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=%2FIEBAHoBogQ6xenwE8SCF1KpuhIlwlDBOGt1UsjQhv55FL9Mt9rMqPS%2BaCHGFGPRdVDnOI8ZEmgtWokFBeXsKRhKTIqmTf1pZmJHVdf3lzm1Ctkt2%2FOT1uKv8go4VzZdwO6RHxm8%2FDE5nvDHdINc6g%3D%3D"}]}
+server:           cloudflare
 signature-error:  error=expired_jwt
 
 {
@@ -209,18 +234,23 @@ signature-error:  error=expired_jwt
 ================================================================
 The door still decides: GET /api/summarize, the same valid token
 ================================================================
-$ node client.mjs --case=valid --url http://localhost:8787/api/summarize
+$ node client.mjs --case=valid --url https://atf-demo.aauth.dev/api/summarize
 --- sent ---
-GET               http://localhost:8787/api/summarize
-signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788721053
-signature:        sig=:f2jRlr2UrVYWaLKTISy+sC7M2R93j4u0q3vbjUNM91P53PIRUmYK02vdHKEmguzsFCl4+AKeblsg7BoH5dFUBA==:
-signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtNTk2ZGNhNWU1MDc4NTViYSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmxvY2FsIiwiZHdrIjoiYWF1dGgtYWdlbnQuanNvbiIsInN1YiI6ImFhdXRoOnBsYW5uZXJAYXAuYXRmLWRlbW8ubG9jYWwiLCJqdGkiOiI0OWE1MjZmOC00YzM0LTRhNDMtYmQxZS00ZDU4OWQ4MDBkMWQiLCJjbmYiOnsiandrIjp7ImNydiI6IkVkMjU1MTkiLCJ4IjoicEFEQ3Fta0tPTmFiY3JKV1FDdS1nRlNNcXRiUUVvZnFZSlJuX0k3SWtTbyIsImt0eSI6Ik9LUCIsImFsZyI6IkVkMjU1MTkifX0sImlhdCI6MTc4ODcyMDkyOCwiZXhwIjoxNzg4NzI0NTI4LCJodHRwczovL2FnZW50aWN0cnVzdGZyYW1ld29yay5haS9hdGYiOnsicHJvZmlsZSI6ImNzYS1hdGY6MC45LjEiLCJsZXZlbCI6InNlbmlvciIsImFwcHJhaXNhbF9pZCI6InVybjp1dWlkOmYzOTg1ODlmYzU4Nzg2OWE5NTQxYjYxYzliYTE5OTA4IiwiYXBwcmFpc2FsX2lzc3VlciI6Imh0dHBzOi8vZGVtby52ZXJpZmllZGFnZW50cy5haSIsImFwcHJhaXNhbF9oYXNoIjoic2hhMjU2OjcxOTQwYWFiNjMzMTI4YzQ4NTJkM2VhNmVhYjVhZmE1YWIxNmVhZjI4MmFlYTFiNDZkOGQ3OWQ3MGQ4YWJhNmQiLCJldmlkZW5jZV9oYXNoIjoic2hhMjU2OmJlMTM0Yzg3OWExNmFjMDRkYzc1Mjc4ODliNmY0ZmIxYjkyOTk0ZGM2Mjc0Nzc4YTc5ZTQ1YTFhYTU5ZjRmZDIiLCJhcHByYWlzYWxfc3ViamVjdCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJ3b3JrbG9hZF9pZCI6InNwaWZmZTovL2V4YW1wbGUub3JnL2FnZW50L3BsYW5uZXIiLCJzZXF1ZW5jZSI6NDIsImV4cCI6MTc4ODcyNDUyOCwiYmluZGluZ19zdGF0dXMiOiJkZW1vLXByb3Bvc2FsIn19.5U9aiWp4P4jCxZ5Ym8PIjNFJuqWzeXgztF6gUInllVtBUf0QPtlG2jfwcKwyMF-_0-eKIDqHNpxBzQCLtghGCg"
+GET               https://atf-demo.aauth.dev/api/summarize
+signature-input:  sig=("@method" "@authority" "@path" "signature-key");created=1788723499
+signature:        sig=:gwg961OK7e8KwLREwwr3YZI7pILzFwv6rtmapG729ztvyeRmwwgaXZKqZoGdXzbk2YujQs7WKLbaYBpcVNZ7Dg==:
+signature-key:    sig=jwt;jwt="eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiYWEtYWdlbnQrand0Iiwia2lkIjoiYXAtZDM3NGE0YjcwNTQ4OTdjMSJ9.eyJpc3MiOiJodHRwczovL2FwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImR3ayI6ImFhdXRoLWFnZW50Lmpzb24iLCJzdWIiOiJhYXV0aDpwbGFubmVyQGFwLmF0Zi1kZW1vLmFhdXRoLmRldiIsImp0aSI6IjIwNjQ4NDY3LWQ1NGQtNGVjOS1iODkzLTU0ZDM3MzJlMWQ3YyIsImNuZiI6eyJqd2siOnsiY3J2IjoiRWQyNTUxOSIsIngiOiJiT3dVSHd4WXVvRzh0N3VYaVVaRzVnYVo1TDE0WmE4eHFadDQ0R0VEdGRVIiwia3R5IjoiT0tQIiwiYWxnIjoiRWQyNTUxOSJ9fSwiaWF0IjoxNzg4NzIzMjU2LCJleHAiOjE3ODg3MjY4NTYsImh0dHBzOi8vYWdlbnRpY3RydXN0ZnJhbWV3b3JrLmFpL2F0ZiI6eyJwcm9maWxlIjoiY3NhLWF0ZjowLjkuMSIsImxldmVsIjoic2VuaW9yIiwiYXBwcmFpc2FsX2lkIjoidXJuOnV1aWQ6ZjM5ODU4OWZjNTg3ODY5YTk1NDFiNjFjOWJhMTk5MDgiLCJhcHByYWlzYWxfaXNzdWVyIjoiaHR0cHM6Ly9kZW1vLnZlcmlmaWVkYWdlbnRzLmFpIiwiYXBwcmFpc2FsX2hhc2giOiJzaGEyNTY6NDA3YzMwYmMzODZmN2Y2NTIzNTBiNjNmNzhiNTFhMGU4NmYyYmE4ODU2YTI5M2EwMWY0NDVhNGYzMGEzNzRmMSIsImV2aWRlbmNlX2hhc2giOiJzaGEyNTY6YmUxMzRjODc5YTE2YWMwNGRjNzUyNzg4OWI2ZjRmYjFiOTI5OTRkYzYyNzQ3NzhhNzllNDVhMWFhNTlmNGZkMiIsImFwcHJhaXNhbF9zdWJqZWN0Ijoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsIndvcmtsb2FkX2lkIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvYWdlbnQvcGxhbm5lciIsInNlcXVlbmNlIjo0MiwiZXhwIjoxNzg4NzI2ODU2LCJiaW5kaW5nX3N0YXR1cyI6ImRlbW8tcHJvcG9zYWwifX0.4aLSzS_3jgAxccW1I4gSLpZ0D7nZHzZGXGq6CyAGeQp729_g7Iiaj0XiDdEhAclZYe5UPt1J3SQd0q9iHjn-CQ"
 
 --- received ---
 401 Unauthorized
 aauth-requirement:requirement=person-token
 access-control-expose-headers:AAuth-Requirement,Signature-Error,Accept-Signature,Accept-Signature-Scheme,Accept-Signature-Alg,Location,Retry-After
+cf-ray:           a36feef2e96bf369-LIS
+connection:       keep-alive
 content-type:     application/problem+json
+nel:              {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+report-to:        {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=nzBdV8spOK7eYtrObourc1BUrSv%2Bv7QWgAzMIqYn083icw5MUfHlGAj9WZ3vvA5Et%2Bbud9ybGppaW1IxIzl9wDptbtTaTTVffThBMcfFiVS7VfJC2bFS%2FkriiQAPyxtOY0TsREmrh2oqEtZHIcM1Sw%3D%3D"}]}
+server:           cloudflare
 
 {
   "type": "about:blank",
