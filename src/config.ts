@@ -9,11 +9,30 @@ export interface AtfPolicy {
   minimum_level: string
   /** Accepted `appraisal_issuer` values. */
   evaluators: string[]
-  /** Where superseding events for these appraisals are published. */
-  status_channel: string
-  /** What to do when the status channel cannot be reached. */
-  on_status_unreachable: 'fail_closed' | 'fail_open'
 }
+
+// ── Why there is no status_channel here ──────────────────────────────────
+//
+// Earlier versions published `status_channel` and `on_status_unreachable` in
+// this member, and the gate had a check that consulted them. Both are gone.
+//
+// The channel is the evaluator's, and the evaluator already names it. Josh's
+// profile requires an ATF appraisal to carry
+//
+//   "status": { "channel": "…", "on_unreachable": "fail_closed" }
+//
+// inside the signed document, next to `sequence` and `supersedes`. A resource
+// republishing that value in its own metadata asserts, unsigned and by hand,
+// something the evaluator asserts under signature. Two places to state one
+// fact is one place for it to be wrong, and the copy here was wrong: it named
+// a host that does not resolve, beside a fail-closed promise the code did not
+// keep, because `statusReachable` read a config flag rather than the network.
+//
+// Withdrawal is now AAuth's revocation endpoint (§Token Revocation). The
+// agent provider watches the evaluator's feed, and when a grade is pulled it
+// calls POST /revoke here with the agent token's `(iss, jti)`. Push, not
+// poll: no evaluator in the request path, and no fail-open/fail-closed
+// question, because there is nothing to fail to reach.
 
 export interface Config {
   /** This resource's identity as published and linked. In production an HTTPS
@@ -37,10 +56,18 @@ export interface Config {
   agentProviderJwks: Record<string, { keys: JsonWebKey[] }>
   /** Which carrier the 401 challenge uses for the ATF requirement. */
   challengeCarrier: 'bare' | 'params'
-  /** Superseded appraisal sequences, keyed by appraisal subject. */
-  superseded: Record<string, number>
-  /** Is the status channel reachable? */
-  statusReachable: boolean
+  /**
+   * How long a revocation entry is kept when the revoking call did not say.
+   *
+   * A revocation only has to outlive the token: once `exp` has passed the
+   * token is refused on expiry and the entry is dead weight. But AAuth's
+   * revocation request carries only `(iss, jti)` — no `exp` — so a recipient
+   * has nothing to size its store from. Filed as
+   * https://github.com/dickhardt/AAuth/issues/146, which proposes a REQUIRED
+   * `exp`. This resource accepts one when offered and falls back to 24 hours,
+   * comfortably longer than any agent token it will see.
+   */
+  revocationTtlSeconds: number
 }
 
 export const ATF_CLAIM = 'https://agentictrustframework.ai/atf'
@@ -65,8 +92,6 @@ const DEFAULT_POLICY: AtfPolicy = {
   profiles: ['csa-atf:0.9.1'],
   minimum_level: 'senior',
   evaluators: ['https://demo.verifiedagents.ai'],
-  status_channel: 'https://demo.verifiedagents.ai/status/atf',
-  on_status_unreachable: 'fail_closed',
 }
 
 function parseJson<T>(raw: string | undefined, fallback: T): T {
@@ -78,18 +103,10 @@ function parseJson<T>(raw: string | undefined, fallback: T): T {
   }
 }
 
-export function resolveConfig(env: Env): Config {
-  const supersededList = parseJson<{ appraisal_subject: string; sequence: number }[]>(
-    env.ATF_SUPERSEDED,
-    []
-  )
-  const superseded: Record<string, number> = {}
-  for (const entry of supersededList) {
-    if (entry && typeof entry.appraisal_subject === 'string') {
-      superseded[entry.appraisal_subject] = Number(entry.sequence)
-    }
-  }
+/** 24 hours. See `Config.revocationTtlSeconds`. */
+export const DEFAULT_REVOCATION_TTL_SECONDS = 86_400
 
+export function resolveConfig(env: Env): Config {
   const origin = env.ORIGIN ?? 'https://atf-demo.aauth.dev'
   return {
     resourceUrl: env.RESOURCE_URL ?? origin,
@@ -101,7 +118,9 @@ export function resolveConfig(env: Env): Config {
     atf: DEFAULT_POLICY,
     agentProviderJwks: parseJson(env.AGENT_PROVIDER_JWKS, {}),
     challengeCarrier: env.ATF_CHALLENGE_CARRIER === 'params' ? 'params' : 'bare',
-    superseded,
-    statusReachable: env.ATF_STATUS !== 'unreachable',
+    revocationTtlSeconds:
+      Number(env.REVOCATION_TTL_SECONDS) > 0
+        ? Number(env.REVOCATION_TTL_SECONDS)
+        : DEFAULT_REVOCATION_TTL_SECONDS,
   }
 }

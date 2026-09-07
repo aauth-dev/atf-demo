@@ -22,6 +22,14 @@ ATF_CHALLENGE_CARRIER = "bare"
 queue = "aauth-events"
 binding = "EVENTS_QUEUE"
 
+# Revoked agent tokens, keyed (iss, jti) per AAuth §Token Revocation. Each
+# entry carries a KV TTL sized from the revoked token's own exp when the
+# revoking call supplies one, and 24 hours when it does not — the request
+# body has no exp field in AAuth as written (spec issue #146).
+[[kv_namespaces]]
+binding = "REVOCATIONS"
+id = "1fbb4f2f2ee14c1ea2236c2e4172b0f3"
+
 # ── Local development ──
 #
 # The custom-domain route lives under [env.production], not at the top level.
@@ -48,3 +56,7 @@ custom_domain = true
 [[env.production.queues.producers]]
 queue = "aauth-events"
 binding = "EVENTS_QUEUE"
+
+[[env.production.kv_namespaces]]
+binding = "REVOCATIONS"
+id = "1fbb4f2f2ee14c1ea2236c2e4172b0f3"

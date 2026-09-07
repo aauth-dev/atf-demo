@@ -25,15 +25,18 @@ export interface Env {
   ATF_CHALLENGE_CARRIER?: string
 
   /**
-   * Superseded appraisal sequences, as a JSON array of
-   * `{ "appraisal_subject": "…", "sequence": N }`. An appraisal whose sequence
-   * is at or below the recorded one for its subject is refused — the demotion
-   * invariant of the interface contract. Empty in normal operation.
+   * Fallback lifetime, in seconds, for a revocation entry whose revoking call
+   * carried no `exp`. Defaults to 24 hours. See `Config.revocationTtlSeconds`
+   * and https://github.com/dickhardt/AAuth/issues/146.
    */
-  ATF_SUPERSEDED?: string
+  REVOCATION_TTL_SECONDS?: string
 
-  /** Set to "unreachable" to simulate a dead status channel (fail closed). */
-  ATF_STATUS?: string
+  /**
+   * Revoked agent tokens, keyed `revoked:{iss}\u0000{jti}`, each written with
+   * a KV TTL so entries expire rather than accumulating. The value is a small
+   * JSON record kept for audit; presence of the key is what refuses a token.
+   */
+  REVOCATIONS: KVNamespace
 
   EVENTS_QUEUE: Queue // bound to aauth-events queue; consumed by aauth-shipper
 }

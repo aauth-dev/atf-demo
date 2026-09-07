@@ -52,12 +52,11 @@ admitted.
 {
   "issuer": "https://atf-demo.aauth.dev",
   "access_mode": "agent-token",
+  "revocation_endpoint": "https://atf-demo.aauth.dev/revoke",
   "https://agentictrustframework.ai/policy": {
     "profiles": ["csa-atf:0.9.1"],
     "minimum_level": "senior",
-    "evaluators": ["https://demo.verifiedagents.ai"],
-    "status_channel": "https://demo.verifiedagents.ai/status/atf",
-    "on_status_unreachable": "fail_closed"
+    "evaluators": ["https://demo.verifiedagents.ai"]
   }
 }
 ```
@@ -73,7 +72,7 @@ Check order is load-bearing.
 |---|-------|-----------|
 | 1 | RFC 9421 signature, then `Signature-Key` scheme is `jwt` | 401 + `Signature-Error` |
 | 2 | `typ` is `aa-agent+jwt` | 401 challenge |
-| 3 | Token layer: structure, expiry, `cnf` binding, provider signature | 401 + `Signature-Error` |
+| 3 | Token layer: structure, `cnf` binding, provider signature, then expiry | 401 + `Signature-Error` |
 | 4 | `iss` is a trusted agent provider | 401 challenge |
 | 5 | The ATF claim is present | 401 challenge |
 | 6 | `profile` is one this resource reads | 401 challenge |
@@ -81,17 +80,28 @@ Check order is load-bearing.
 | 8 | `appraisal_subject` and `workload_id` agree | **403** `atf_subject_mismatch` |
 | 9 | The appraisal has not lapsed | 401 challenge |
 | 10 | `level` meets `minimum_level` | 401 challenge |
-| 11 | The status channel is reachable | **403** `atf_status_unavailable` |
-| 12 | No superseding event at or above this `sequence` | **403** `atf_appraisal_superseded` |
+| 11 | The token has not been revoked | 401 `agent_token_revoked` |
 
 Checks 1–7 and 9–10 are conditions a better agent token repairs, so they all get the same
 401 challenge. Check 8 is the claim's internal consistency: the provider signed one token
-carrying both `sub` and the appraisal's subject, and if they disagree the provider has
+carrying both `appraisal_subject` and `workload_id`, and if they disagree the provider has
 contradicted itself. It runs before the policy checks, because policy applied to an
 incoherent claim means nothing, and it is a 403 because a fresh token from the same provider
-would carry the same contradiction. Checks 11–12 are currency, which needs the status
-channel; `on_status_unreachable` is `fail_closed`, so an unreachable channel refuses before
-the superseded list is consulted. Unknown is not current.
+would carry the same contradiction. Check 11 is currency, and it is last because it is the
+only check that reads storage — everything above it is a pure function of the token, so a
+token failing one of them never costs a KV lookup.
+
+Inside check 3, expiry is judged only after the provider's signature verifies. Before that
+the payload is bytes the presenter chose, and `expired_jwt` means the named issuer minted
+this and its lifetime ran out — report it from an unauthenticated read and any forgery can
+produce it by carrying a past `exp`, sending an agent off to refresh a token that was never
+the problem. Fixed in `@hellocoop/httpsig` 2.4.0 and `@aauth/resource` 2.2.0.
+
+Two checks used to sit at 11 and 12: an evaluator status channel's reachability, and a
+superseding `sequence`. Both read a Worker environment variable rather than anything at
+runtime, so neither could ever fire in production, and the metadata published a fail-closed
+status policy the code did not keep. Both are gone. Withdrawal is now AAuth revocation,
+below.
 
 ### 401 — registered `Signature-Error` codes
 
@@ -128,18 +138,57 @@ different token. A test pins them apart.
 
 ### 403 — resource-defined errors
 
-AAuth defines no error registry for resource endpoints, so these three are this resource's
-own:
+AAuth defines no error registry for resource endpoints, so this one is this resource's own:
 
 | `error` | |
 |---------|---|
 | `atf_subject_mismatch` | The claim contradicts the token carrying it |
-| `atf_appraisal_superseded` | A demotion outranks an unexpired token |
-| `atf_status_unavailable` | Currency could not be established; fails closed |
 
 A 403 denies after the signature verified — authentication succeeded, authorization did
 not — so per AAuth §Verification it carries no `Signature-Error`, no `Accept-Signature-*`,
 and no `AAuth-Requirement` either: there is nothing the agent can go and get.
+
+`POST /revoke` has two more of its own: `403 not_token_issuer` when the signer is not the
+`iss` being revoked, and `400 invalid_request` for a body missing `iss` or `jti`.
+
+## Revocation — AAuth §Token Revocation
+
+```http
+POST /revoke
+Content-Type: application/json
+Signature-Key: sig=jwt;jwt="…"
+Content-Digest: sha-256=:…:
+
+{ "iss": "https://provider.example", "jti": "…", "exp": 1788775882 }
+```
+
+Under identity-based access the agent presents its agent token straight here, so the agent
+provider has no record of which resources hold it. AAuth's answer is that the resource
+offers somewhere to call: "a resource accepting agent tokens SHOULD therefore provide a
+revocation endpoint, and where none is reached that access is bounded by the agent token
+lifetime alone."
+
+This is also what replaced the ATF status channel. The provider watches the evaluator's
+feed; when a grade is withdrawn the provider pushes here. No evaluator in the request path,
+and no fail-open/fail-closed question, because there is nothing to fail to reach.
+
+- **Signed, with `content-digest` covered.** A signature that does not cover the body
+  authenticates the caller and authorises nothing in particular.
+- **Only the token's issuer may revoke it.** The caller's identity — its `jwks_uri` `id`,
+  or its assertion's `iss` under the `jwt` scheme — must equal the `iss` in the body.
+- **Keyed `(iss, jti)`**, as AAuth requires: a `jti` is unique only within its issuer.
+- **`200` always, never `404`.** AAuth's `404` case assumes a recipient holding records of
+  the tokens it issued. This one verifies statelessly and keeps nothing.
+- **`exp` sizes the KV entry**, falling back to 24 hours. A revocation only has to outlive
+  the token it names, and AAuth's request body carries no `exp` to size it from —
+  [spec issue #146](https://github.com/dickhardt/AAuth/issues/146).
+
+A revoked token is refused `401 agent_token_revoked` with the agent-token challenge and no
+`Signature-Error`: the registry has no code for a revoked token, and `expired_jwt` — the
+nearest — would be false. 401 and not 403, because the credential is no longer good and the
+remedy is another agent token, exactly as it is for an expired one.
+
+`node harness/revoke.mjs --url https://atf-demo.aauth.dev` runs it end to end.
 
 ## The challenge, and AAuth issue #145
 

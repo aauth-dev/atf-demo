@@ -6,8 +6,8 @@
 // problem+json error format are all the protocol as written. What is new here
 // is (a) reading the `https://agentictrustframework.ai/atf` claim from the
 // agent token, (b) the `https://agentictrustframework.ai/policy` member this
-// resource publishes in its metadata, and (c) three `error` values in 403
-// bodies, which AAuth leaves to the resource to define.
+// resource publishes in its metadata, and (c) one `error` value in a 403
+// body, which AAuth leaves to the resource to define.
 //
 // ── What this resource does and does not verify ────────────────────────────
 //
@@ -16,8 +16,9 @@
 // signature over the appraisal — the claim carries `appraisal_hash`, a digest
 // of the complete signed appraisal, but no way to resolve the document behind
 // it. So the grade is the AP's assertion, held on the AP's authority, exactly
-// as `sub` and `cnf` are. `binding_status` is reported as `ap-asserted` for
-// that reason, and the 200 body says so in words.
+// as `sub` and `cnf` are. The 200 body says so in words, and reports the
+// provider's own `binding_status` beside what this resource established,
+// attributed to whichever party said it.
 //
 // The digests travel anyway. They cost nothing, and anyone who obtains the
 // appraisal or the TRACE record out of band can bind it to this token.
@@ -61,7 +62,7 @@ export interface ChallengeFailure {
 export interface DenyFailure {
   kind: 'deny'
   /** The `error` member of the problem+json body. */
-  error: 'atf_subject_mismatch' | 'atf_appraisal_superseded' | 'atf_status_unavailable'
+  error: 'atf_subject_mismatch'
   detail: string
 }
 
@@ -73,13 +74,67 @@ export interface SignatureFailure {
   detail: string
 }
 
+/**
+ * The agent provider withdrew this token: a revocation naming its
+ * `(iss, jti)` reached POST /revoke and has not yet expired.
+ *
+ * 401, not 403. The signature verified and the claim was coherent, but the
+ * credential is no longer good — the same shape of condition as expiry, and
+ * the same remedy: go and get another agent token. A 403 would say there is
+ * nothing to go and get, which is false unless the provider also refuses to
+ * issue, and that is the provider's decision to report, not this resource's
+ * to guess.
+ *
+ * The body's `error` is `agent_token_revoked`, this resource's own name. The
+ * Signature Error Code registry in draft-hardt-httpbis-signature-key has no
+ * value for a revoked token — `expired_jwt` is the nearest and it is not
+ * true — so no `Signature-Error` header is sent. The `AAuth-Requirement`
+ * challenge carries the actionable part.
+ */
+export interface RevokedFailure {
+  kind: 'revoked'
+  iss: string
+  jti: string
+  detail: string
+}
+
 export interface GatePass {
   kind: 'pass'
   token: VerifiedAgentToken
   atf: AtfClaim
 }
 
-export type GateResult = GatePass | ChallengeFailure | DenyFailure | SignatureFailure
+export type GateResult =
+  | GatePass
+  | ChallengeFailure
+  | DenyFailure
+  | SignatureFailure
+  | RevokedFailure
+
+/** Key under which a revocation for `(iss, jti)` is stored.
+ *
+ *  AAuth §Token Revocation: a `jti` is unique only within its issuer's
+ *  namespace, and recipients maintaining revocation state MUST key it by the
+ *  pair. NUL separates the two so no `iss`/`jti` split can collide with
+ *  another — a character neither an HTTPS server identifier nor a JWT
+ *  identifier can contain. */
+export function revocationKey(iss: string, jti: string): string {
+  return `revoked:${iss}\u0000${jti}`
+}
+
+/** Is this token's `(iss, jti)` on the revocation list? */
+export async function isRevoked(
+  store: KVNamespace,
+  iss: string,
+  jti: string | undefined
+): Promise<boolean> {
+  // A token with no `jti` cannot be revoked by `(iss, jti)` and cannot be
+  // looked up either. AAuth lists `jti` as REQUIRED on an agent token, so
+  // this is a malformed token that got past the token layer rather than a
+  // case to handle; it is reported as not revoked and refused elsewhere.
+  if (!jti) return false
+  return (await store.get(revocationKey(iss, jti))) !== null
+}
 
 /**
  * Build the `AAuth-Requirement` value for the agent-token challenge.
@@ -223,10 +278,11 @@ function signatureErrorFor(code: string): string {
  *  10-11 are policy on the claim as presented — freshness and level. Pure
  *       functions of the token, needing no external state, so they run before
  *       anything that consults the status channel. Both fixable: 401.
- *  12-13 are currency, which needs the status channel. `on_status_unreachable`
- *       is `fail_closed`: unknown is not current, so an unreachable channel
- *       refuses before the superseded list is consulted. Neither is fixable
- *       by the agent: 403.
+ *  12   is currency: whether the agent provider has withdrawn this token
+ *       through POST /revoke. Last, because it is the only check that reads
+ *       storage — everything above is a pure function of the token, and a
+ *       token that fails one of those never costs a KV lookup. 401, because
+ *       a revoked token is repaired the same way an expired one is.
  */
 export async function runGate(
   jwtRaw: string,
@@ -234,7 +290,8 @@ export async function runGate(
   typ: unknown,
   config: Config,
   now: number = Math.floor(Date.now() / 1000),
-  clockToleranceSeconds = CLOCK_TOLERANCE_SECONDS
+  clockToleranceSeconds = CLOCK_TOLERANCE_SECONDS,
+  revocations?: KVNamespace
 ): Promise<GateResult> {
   // 3. The right kind of token. A person or auth token here is not a failure
   //    of this endpoint's contract so much as the wrong flow entirely.
@@ -360,25 +417,32 @@ export async function runGate(
     }
   }
 
-  // 12. Currency. Unknown is not current.
-  if (!config.statusReachable) {
-    if (config.atf.on_status_unreachable === 'fail_closed') {
-      return {
-        kind: 'deny',
-        error: 'atf_status_unavailable',
-        detail: `the status channel ${config.atf.status_channel} could not be reached, and this resource fails closed`,
-      }
-    }
-  }
-
-  // 13. No superseding event for this subject at or above this sequence.
-  const supersededAt = config.superseded[appraisalSubject]
-  const sequence = typeof atf.sequence === 'number' ? atf.sequence : undefined
-  if (supersededAt !== undefined && sequence !== undefined && sequence <= supersededAt) {
+  // 12. Currency: has this token been withdrawn?
+  //
+  //      Two checks used to sit here. One asked whether the evaluator's
+  //      status channel was reachable, and one whether a superseding event
+  //      outranked this appraisal's `sequence`. Neither did what it said:
+  //      both read a Worker environment variable, so in production one was
+  //      permanently "reachable" and the other permanently empty, and no
+  //      request could fail either. They existed so tests could force a 403.
+  //
+  //      What replaces them is push. The agent provider watches the
+  //      evaluator's feed; when a grade is withdrawn it calls POST /revoke
+  //      here with the agent token's `(iss, jti)`, and the token stops
+  //      working on the next request. No evaluator in the request path, no
+  //      poll, and no fail-open/fail-closed question, because there is
+  //      nothing to fail to reach.
+  //
+  //      Last of the claim checks, because it is the only one that touches
+  //      storage. Everything above is a pure function of the token.
+  if (revocations && (await isRevoked(revocations, token.iss, token.jti))) {
     return {
-      kind: 'deny',
-      error: 'atf_appraisal_superseded',
-      detail: `appraisal sequence ${sequence} for ${appraisalSubject} was superseded at sequence ${supersededAt}`,
+      kind: 'revoked',
+      iss: token.iss,
+      jti: token.jti as string,
+      detail:
+        `agent token ${token.jti} from ${token.iss} was revoked by its ` +
+        `agent provider; obtain a new agent token`,
     }
   }
 
@@ -412,7 +476,20 @@ export function verificationReport(pass: GatePass, config: Config) {
       established_by:
         'the ATF evaluator named in appraisal_issuer, as asserted by the agent provider',
     },
-    binding_status: 'ap-asserted',
+    // Two statements, by two parties, about the same binding — reported
+    // separately because they are not the same claim and collapsing them
+    // loses one. `asserted_by_agent_provider` is the claim's own
+    // `binding_status` verbatim: the provider grading its own binding, which
+    // it currently labels a proposal. `established_by_this_resource` is what
+    // this resource actually did, which is take the provider's word for it.
+    // An earlier version reported only the second under the bare name
+    // `binding_status`, which read as though it were the value in the token.
+    binding: {
+      asserted_by_agent_provider: atf.binding_status,
+      established_by_this_resource: 'ap-asserted',
+      means:
+        'the agent provider signed one token carrying sub, appraisal_subject and workload_id, and this resource checked that appraisal_subject and workload_id do not contradict each other. It did not establish that an aauth: identifier and a spiffe: identifier name the same principal — nothing in AAuth or TRACE says who asserts that (interface contract, D-05).',
+    },
     policy_applied: {
       profiles: config.atf.profiles,
       minimum_level: config.atf.minimum_level,

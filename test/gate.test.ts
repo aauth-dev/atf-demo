@@ -1,10 +1,9 @@
-// The ATF gate: the four interop cases, the three refusals no fresh token
-// repairs, and the two endpoints' contracts.
+// The ATF gate: the four interop cases, the one refusal no fresh token
+// repairs, revocation, and the two endpoints' contracts.
 
 import { beforeAll, describe, expect, it } from 'vitest'
-import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test'
+import { SELF } from 'cloudflare:test'
 import { fetch as httpsigFetch } from '@hellocoop/httpsig'
-import app from '../src/app'
 import { clearMetadataCache } from '@aauth/resource'
 import { parseRequirementHeader } from '@aauth/protocol'
 import {
@@ -12,7 +11,6 @@ import {
   ATF_CLAIM,
   OTHER_AP,
   RESOURCE,
-  SUBJECT,
   atfClaim,
   generateEd25519,
   installMockFetch,
@@ -79,26 +77,6 @@ async function expectDeny(res: Response, error: string) {
   return body
 }
 
-/**
- * Dispatch a signed request with extra bindings. `SELF.fetch` runs against the
- * worker's own configured env, so the two env-driven refusals — a superseding
- * event and a dead status channel — call the app directly instead.
- */
-async function withEnv(token: string, overrides: Record<string, string>): Promise<Response> {
-  const url = `${RESOURCE}/agent/echo`
-  const { headers } = await httpsigFetch(url, {
-    dryRun: true,
-    method: 'GET',
-    signingKey: agentKey.privateJwk,
-    signatureKey: { type: 'jwt', jwt: token },
-    components: ['@method', '@authority', '@path', 'signature-key'],
-  })
-  const ctx = createExecutionContext()
-  const res = await app.fetch(new Request(url, { method: 'GET', headers }), { ...env, ...overrides }, ctx)
-  await waitOnExecutionContext(ctx)
-  return res
-}
-
 describe('the four interop cases', () => {
   it('1. valid — a fresh Senior token is accepted', async () => {
     const token = await mintAgentToken(apKey, agentKey)
@@ -110,8 +88,11 @@ describe('the four interop cases', () => {
     expect(body.atf.level).toBe('senior')
     expect(body.atf.profile).toBe('csa-atf:0.9.1')
     expect(body.agent_token.iss).toBe(AP)
-    // The grade is the provider's assertion, and the body says so.
-    expect(body.binding_status).toBe('ap-asserted')
+    // Two statements about the binding, attributed to who made each. The
+    // provider's own binding_status travels verbatim rather than being
+    // replaced by this resource's word for it.
+    expect(body.binding.established_by_this_resource).toBe('ap-asserted')
+    expect(body.binding.asserted_by_agent_provider).toBe('demo-proposal')
     expect(body.limits.join(' ')).toContain('did not verify the ATF evaluator')
   })
 
@@ -187,21 +168,159 @@ describe('refusals no fresh token repairs (403)', () => {
     expect(String(body.detail)).toContain('somebody-else')
   })
 
-  it('atf_appraisal_superseded — a demotion outranks an unexpired token', async () => {
-    const token = await mintAgentToken(apKey, agentKey, { atf: atfClaim({ sequence: 42 }) })
-    // A superseding event at sequence 43 for this subject.
-    const res = await withEnv(token, {
-      ATF_SUPERSEDED: JSON.stringify([{ appraisal_subject: SUBJECT, sequence: 43 }]),
-    })
+  it('is the only 403 this resource has', async () => {
+    // Two more used to live here: atf_status_unavailable and
+    // atf_appraisal_superseded. Both read a Worker environment variable
+    // rather than anything at runtime, so in production neither could ever
+    // fire, and the metadata promised a fail-closed status channel the code
+    // never fetched. Withdrawal is now AAuth revocation, which is a 401.
+    const res = await SELF.fetch(`${RESOURCE}/.well-known/aauth-resource.json`)
+    const policy = ((await res.json()) as any)[
+      'https://agentictrustframework.ai/policy'
+    ]
+    expect(policy.status_channel).toBeUndefined()
+    expect(policy.on_status_unreachable).toBeUndefined()
+  })
+})
 
-    const body = await expectDeny(res, 'atf_appraisal_superseded')
-    expect(String(body.detail)).toContain('42')
+describe('revocation (AAuth §Token Revocation)', () => {
+  /** Sign a POST /revoke as `signerIss`, using the jwt scheme. */
+  async function revoke(
+    signerKey: TestKey,
+    signerToken: string,
+    body: Record<string, unknown>
+  ): Promise<Response> {
+    const url = `${RESOURCE}/revoke`
+    const payload = JSON.stringify(body)
+    const { headers } = await httpsigFetch(url, {
+      dryRun: true,
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: payload,
+      signingKey: signerKey.privateJwk,
+      signatureKey: { type: 'jwt', jwt: signerToken },
+      components: [
+        '@method',
+        '@authority',
+        '@path',
+        'content-digest',
+        'content-type',
+        'signature-key',
+      ],
+    })
+    return SELF.fetch(url, { method: 'POST', headers, body: payload })
+  }
+
+  it('the metadata advertises the endpoint', async () => {
+    const res = await SELF.fetch(`${RESOURCE}/.well-known/aauth-resource.json`)
+    expect(((await res.json()) as any).revocation_endpoint).toBe(`${RESOURCE}/revoke`)
   })
 
-  it('atf_status_unavailable — unknown is not current, so it fails closed', async () => {
+  it('refuses an unsigned revocation', async () => {
+    const res = await SELF.fetch(`${RESOURCE}/revoke`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ iss: AP, jti: 'anything' }),
+    })
+    // Unsigned revocation would let anyone disable any agent by guessing a
+    // jti. AAuth: recipients MUST verify the caller via HTTP signatures.
+    expect(res.status).toBe(401)
+  })
+
+  it('refuses a revocation signed by someone other than the token issuer', async () => {
+    // OTHER_AP holds a perfectly good token, and tries to revoke one of AP's.
+    const otherToken = await mintAgentToken(otherApKey, agentKey, { iss: OTHER_AP })
+    const res = await revoke(agentKey, otherToken, { iss: AP, jti: 'victim' })
+
+    expect(res.status).toBe(403)
+    expect(((await res.json()) as any).error).toBe('not_token_issuer')
+  })
+
+  it('revokes a token, and the next request with it is refused', async () => {
     const token = await mintAgentToken(apKey, agentKey)
-    const res = await withEnv(token, { ATF_STATUS: 'unreachable' })
-    await expectDeny(res, 'atf_status_unavailable')
+    const jti = JSON.parse(
+      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+    ).jti as string
+
+    // It works first.
+    expect((await signedGet(agentKey, token)).status).toBe(200)
+
+    // The provider withdraws it, signing as itself with its own agent token.
+    const revocation = await revoke(agentKey, token, { iss: AP, jti })
+    expect(revocation.status).toBe(200)
+    expect(((await revocation.json()) as any).stored).toBe(true)
+
+    // 401, not 403: the credential is no longer good and the remedy is
+    // another agent token, exactly as it is for an expired one.
+    const after = await signedGet(agentKey, token)
+    expect(after.status).toBe(401)
+    const body = (await after.json()) as any
+    expect(body.error).toBe('agent_token_revoked')
+    // No Signature-Error: the registry has no code for a revoked token, and
+    // expired_jwt — the nearest — would be false.
+    expect(after.headers.get('Signature-Error')).toBeNull()
+    expect(after.headers.get('AAuth-Requirement')).toBe('requirement=agent-token')
+  })
+
+  it('revocation is keyed by (iss, jti), so it does not cross issuers', async () => {
+    const token = await mintAgentToken(apKey, agentKey)
+    const jti = JSON.parse(
+      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+    ).jti as string
+
+    // OTHER_AP revokes the same jti in its own namespace. A jti is unique
+    // only within its issuer, so this must not touch AP's token.
+    const otherToken = await mintAgentToken(otherApKey, agentKey, { iss: OTHER_AP })
+    expect((await revoke(agentKey, otherToken, { iss: OTHER_AP, jti })).status).toBe(200)
+
+    expect((await signedGet(agentKey, token)).status).toBe(200)
+  })
+
+  it('rejects a body missing iss or jti', async () => {
+    const token = await mintAgentToken(apKey, agentKey)
+    const res = await revoke(agentKey, token, { iss: AP })
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as any).error).toBe('invalid_request')
+  })
+
+  it('stores nothing for a token that has already expired', async () => {
+    const token = await mintAgentToken(apKey, agentKey)
+    // exp two hours in the past: the token is already refused on expiry, so
+    // an entry would be storing nothing useful. AAuth wants a 200 either way
+    // — "if the token was revoked or was already invalid".
+    const res = await revoke(agentKey, token, {
+      iss: AP,
+      jti: crypto.randomUUID(),
+      exp: now() - 7200,
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as any
+    expect(body.revoked).toBe(true)
+    expect(body.stored).toBe(false)
+  })
+
+  it('sizes the entry from exp when given one, and falls back to 24 hours', async () => {
+    const token = await mintAgentToken(apKey, agentKey)
+
+    const withExp = (await (
+      await revoke(agentKey, token, {
+        iss: AP,
+        jti: crypto.randomUUID(),
+        exp: now() + 300,
+      })
+    ).json()) as any
+    // 300s plus the 60s clock tolerance, less however long the test took.
+    expect(withExp.expires_in).toBeGreaterThan(300)
+    expect(withExp.expires_in).toBeLessThanOrEqual(360)
+
+    const withoutExp = await revoke(agentKey, token, {
+      iss: AP,
+      jti: crypto.randomUUID(),
+    })
+    // AAuth's revocation request has no exp field (spec issue #146), so a
+    // caller following the spec as written lands here.
+    expect(((await withoutExp.json()) as any).expires_in).toBe(86_400)
+
   })
 })
 

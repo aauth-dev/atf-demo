@@ -21,7 +21,25 @@ describe('metadata', () => {
     expect(policy.profiles).toEqual(['csa-atf:0.9.1'])
     expect(policy.minimum_level).toBe('senior')
     expect(policy.evaluators).toEqual(['https://demo.verifiedagents.ai'])
-    expect(policy.on_status_unreachable).toBe('fail_closed')
+
+    // No status_channel and no on_status_unreachable. The channel is the
+    // evaluator's, and the evaluator names it inside the signed appraisal as
+    // status.channel / status.on_unreachable. Republishing it here asserted
+    // by hand, unsigned, something the evaluator asserts under signature —
+    // and the copy was wrong: it named a host that does not resolve, beside a
+    // fail-closed promise the code did not keep. Withdrawal is now AAuth
+    // revocation, advertised as revocation_endpoint.
+    expect(policy.status_channel).toBeUndefined()
+    expect(policy.on_status_unreachable).toBeUndefined()
+  })
+
+  it('advertises a revocation endpoint, as a resource taking agent tokens SHOULD', async () => {
+    const res = await SELF.fetch(`${RESOURCE}/.well-known/aauth-resource.json`)
+    const metadata = (await res.json()) as Record<string, unknown>
+    // AAuth §Token Revocation: under identity-based access the agent presents
+    // its agent token straight to the resource, so the provider has no record
+    // of which resources hold it and needs somewhere to call.
+    expect(metadata.revocation_endpoint).toBe(`${RESOURCE}/revoke`)
   })
 
   it('publishes no jwks_uri: it issues no tokens and signs no calls', async () => {
