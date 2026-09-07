@@ -16,11 +16,12 @@
   },
   "dependencies": {
     "@aauth/protocol": "^1.0.1",
-    "@aauth/resource": "^2.1.0",
-    "@hellocoop/httpsig": "^2.3.0",
+    "@aauth/resource": "^2.2.0",
+    "@hellocoop/httpsig": "^2.4.0",
     "hono": "^4.7.0"
   },
   "devDependencies": {
+    "@aauth/local-keys": "^2.0.0",
     "@cloudflare/vitest-plugin": "^1.1.3",
     "@cloudflare/workers-types": "^5.20260831.1",
     "typescript": "^5.7.0",

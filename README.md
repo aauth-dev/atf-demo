@@ -156,39 +156,78 @@ and no `AAuth-Requirement` either: there is nothing the agent can go and get.
 ```http
 POST /revoke
 Content-Type: application/json
-Signature-Key: sig=jwt;jwt="…"
+Signature-Key: sig=jwks_uri;id="https://ps.example";dwk="aauth-person.json";kid="key-1"
 Content-Digest: sha-256=:…:
 
-{ "iss": "https://provider.example", "jti": "…", "exp": 1788775882 }
+{ "jti": "…", "exp": 1788794517 }
 ```
 
-Under identity-based access the agent presents its agent token straight here, so the agent
-provider has no record of which resources hold it. AAuth's answer is that the resource
-offers somewhere to call: "a resource accepting agent tokens SHOULD therefore provide a
-revocation endpoint, and where none is reached that access is bounded by the agent token
-lifetime alone."
+Conforms to the section as revised by [spec PR #147](https://github.com/dickhardt/AAuth/pull/147),
+which settled [issue #146](https://github.com/dickhardt/AAuth/issues/146).
 
-This is also what replaced the ATF status channel. The provider watches the evaluator's
-feed; when a grade is withdrawn the provider pushes here. No evaluator in the request path,
-and no fail-open/fail-closed question, because there is nothing to fail to reach.
+- **`jti` and `exp`, both REQUIRED. No `iss`.** The issuer is not a request
+  parameter: the recipient takes it from the identity it verified on the
+  signature and keys the revocation under that. *"A caller cannot name an
+  issuer it cannot sign for, so revoking another issuer's token is not
+  something a recipient refuses — it is unreachable."*
+- **`exp` bounds the entry.** Past `exp` plus clock skew the token is refused on
+  expiry alone and the entry is dead weight, so that is the KV TTL. An `exp`
+  further ahead than the longest lifetime this resource accepts — 24 hours, the
+  ceiling §Agent Tokens puts on an agent token — is `400 invalid_request`,
+  since such a token would be refused on presentation anyway.
+- **Signed, with `content-digest` covered.** A signature that does not cover the
+  body authenticates the caller and authorises nothing in particular. The
+  caller's identity is established before the body is examined, so a bad
+  signature is `401` with `Signature-Error`.
+- **`200 OK` with an empty body, always.** *"Whether or not it holds a record of
+  the token."* There is no not-found response: a recipient cannot distinguish a
+  token it never saw from one it saw and no longer holds, and an answer that
+  varied with what it holds would disclose that. This resource verifies
+  statelessly and holds nothing, and answers exactly as it would if it did.
+- **Errors** are the section's: `400 invalid_request`, `403 unsupported_iss`,
+  `500 server_error`.
 
-- **Signed, with `content-digest` covered.** A signature that does not cover the body
-  authenticates the caller and authorises nothing in particular.
-- **Only the token's issuer may revoke it.** The caller's identity — its `jwks_uri` `id`,
-  or its assertion's `iss` under the `jwt` scheme — must equal the `iss` in the body.
-- **Keyed `(iss, jti)`**, as AAuth requires: a `jti` is unique only within its issuer.
-- **`200` always, never `404`.** AAuth's `404` case assumes a recipient holding records of
-  the tokens it issued. This one verifies statelessly and keeps nothing.
-- **`exp` sizes the KV entry**, falling back to 24 hours. A revocation only has to outlive
-  the token it names, and AAuth's request body carries no `exp` to size it from —
-  [spec issue #146](https://github.com/dickhardt/AAuth/issues/146).
-
-A revoked token is refused `401 agent_token_revoked` with the agent-token challenge and no
-`Signature-Error`: the registry has no code for a revoked token, and `expired_jwt` — the
-nearest — would be false. 401 and not 403, because the credential is no longer good and the
-remedy is another agent token, exactly as it is for an expired one.
+A revoked token is refused `401 agent_token_revoked` with the agent-token
+challenge and no `Signature-Error`: the registry has no code for a revoked
+token, and `expired_jwt` — the nearest — would be false. 401 and not 403,
+because the credential is no longer good and the remedy is another agent token,
+exactly as it is for an expired one.
 
 `node harness/revoke.mjs --url https://atf-demo.aauth.dev` runs it end to end.
+
+### What this endpoint has no conforming caller for
+
+The same revision names what is revocable and where, and it rules out the thing
+this endpoint was built to do:
+
+> An agent token is revoked only at a PS, by the agent provider that issued it.
+> A resource that accepts an agent token directly under identity-based access
+> has no revocation path: the agent provider holds no record of which resources
+> an agent presents its token to, so it has nothing to call. That access is
+> bounded by the agent token's lifetime alone, which is why an agent token
+> SHOULD NOT live longer than 24 hours.
+
+This resource serves identity-based access. The endpoint above is a conforming
+implementation and it enforces what it records — the capture proves both — but
+no conforming caller has anything to send it, because the only credential it
+accepts is an agent token and an agent token is revoked at the PS.
+
+Getting a revocation to a resource means the four-party flow:
+
+1. The agent gets a **person token** from the PS.
+2. The agent gets a **resource token** from the resource.
+3. The agent asks the PS for an **auth token**; the PS federates to an AS.
+4. **The AS checks the agent token carries what is required** — which is where
+   the ATF gate belongs — and issues the auth token.
+5. The agent calls the resource with the auth token.
+
+Revocation then has a path the whole way: the agent provider revokes the agent
+token at the PS, the PS revokes the person token at the AS, and the AS revokes
+the auth tokens it issued at each resource named in their `aud`.
+
+That flow is not built here. Under it this resource's ATF gate would move to
+the AS and what it verified would be an auth token. See
+`demo/resource-contract.md` in the summit repository.
 
 ## The challenge, and AAuth issue #145
 

@@ -57,17 +57,15 @@ export interface Config {
   /** Which carrier the 401 challenge uses for the ATF requirement. */
   challengeCarrier: 'bare' | 'params'
   /**
-   * How long a revocation entry is kept when the revoking call did not say.
+   * The longest token lifetime this resource will entertain, in seconds.
    *
-   * A revocation only has to outlive the token: once `exp` has passed the
-   * token is refused on expiry and the entry is dead weight. But AAuth's
-   * revocation request carries only `(iss, jti)` — no `exp` — so a recipient
-   * has nothing to size its store from. Filed as
-   * https://github.com/dickhardt/AAuth/issues/146, which proposes a REQUIRED
-   * `exp`. This resource accepts one when offered and falls back to 24 hours,
-   * comfortably longer than any agent token it will see.
+   * AAuth §Token Revocation: "A recipient MAY reject a revocation whose `exp`
+   * is further in the future than the longest lifetime it accepts for any
+   * token, since it would refuse such a token on presentation anyway." The
+   * longest this resource accepts is an agent token's, which §Agent Tokens
+   * says SHOULD NOT exceed 24 hours.
    */
-  revocationTtlSeconds: number
+  maxTokenLifetimeSeconds: number
 }
 
 export const ATF_CLAIM = 'https://agentictrustframework.ai/atf'
@@ -103,8 +101,8 @@ function parseJson<T>(raw: string | undefined, fallback: T): T {
   }
 }
 
-/** 24 hours. See `Config.revocationTtlSeconds`. */
-export const DEFAULT_REVOCATION_TTL_SECONDS = 86_400
+/** 24 hours — the ceiling AAuth §Agent Tokens puts on an agent token. */
+export const MAX_TOKEN_LIFETIME_SECONDS = 86_400
 
 export function resolveConfig(env: Env): Config {
   const origin = env.ORIGIN ?? 'https://atf-demo.aauth.dev'
@@ -118,9 +116,9 @@ export function resolveConfig(env: Env): Config {
     atf: DEFAULT_POLICY,
     agentProviderJwks: parseJson(env.AGENT_PROVIDER_JWKS, {}),
     challengeCarrier: env.ATF_CHALLENGE_CARRIER === 'params' ? 'params' : 'bare',
-    revocationTtlSeconds:
-      Number(env.REVOCATION_TTL_SECONDS) > 0
-        ? Number(env.REVOCATION_TTL_SECONDS)
-        : DEFAULT_REVOCATION_TTL_SECONDS,
+    maxTokenLifetimeSeconds:
+      Number(env.MAX_TOKEN_LIFETIME_SECONDS) > 0
+        ? Number(env.MAX_TOKEN_LIFETIME_SECONDS)
+        : MAX_TOKEN_LIFETIME_SECONDS,
   }
 }

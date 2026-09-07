@@ -25,11 +25,11 @@ export interface Env {
   ATF_CHALLENGE_CARRIER?: string
 
   /**
-   * Fallback lifetime, in seconds, for a revocation entry whose revoking call
-   * carried no `exp`. Defaults to 24 hours. See `Config.revocationTtlSeconds`
-   * and https://github.com/dickhardt/AAuth/issues/146.
+   * The longest token lifetime this resource entertains, in seconds. Bounds
+   * the `exp` a revocation may name. Defaults to 24 hours, the ceiling AAuth
+   * §Agent Tokens puts on an agent token.
    */
-  REVOCATION_TTL_SECONDS?: string
+  MAX_TOKEN_LIFETIME_SECONDS?: string
 
   /**
    * Revoked agent tokens, keyed `revoked:{iss}\u0000{jti}`, each written with

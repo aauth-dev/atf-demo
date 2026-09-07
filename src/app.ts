@@ -338,29 +338,83 @@ function refuse(
 
 // ── POST /revoke — AAuth §Token Revocation ──
 //
-// Under identity-based access the agent presents its agent token straight to
-// this resource, so the agent provider has no record of who holds it. The
-// spec's answer is that the resource offers somewhere for the provider to
-// call: "a resource accepting agent tokens SHOULD therefore provide a
-// revocation endpoint, and where none is reached that access is bounded by
-// the agent token lifetime alone."
+// Conforms to the section as revised by spec PR #147, which settled issue
+// #146. Three things there changed what this endpoint does:
 //
-// This is also what replaced the ATF status channel. The provider watches the
-// evaluator's feed; when a grade is withdrawn the provider revokes here.
-// Push, so no evaluator sits in the request path and there is no
-// fail-open/fail-closed question.
+//   1. `iss` is no longer a request parameter. "The recipient takes it from
+//      the identity it verified on the signature and keys the revocation
+//      under that. A caller cannot name an issuer it cannot sign for, so
+//      revoking another issuer's token is not something a recipient refuses
+//      — it is unreachable." The earlier `403 not_token_issuer` compared a
+//      body member against the signer; there is now no body member to
+//      compare, and the check is structural rather than enforced.
+//
+//   2. `jti` and `exp` are both REQUIRED. `exp` bounds how long the
+//      recipient has to remember the revocation, which is exactly the hole
+//      that made this endpoint unsizable before. There is no fallback TTL
+//      any more, because there is no request without an `exp`.
+//
+//   3. The response is `200 OK` with an empty body, "whether or not it holds
+//      a record of the token", and there is no not-found response: "a
+//      recipient cannot distinguish a token it never saw from one it saw and
+//      no longer holds, and an answer that varied with what it holds would
+//      disclose that."
+//
+// ── What this endpoint can and cannot revoke ────────────────────────────
+//
+// The same revision names what is revocable and where, and it rules out the
+// thing this endpoint was built to do:
+//
+//   "An agent token is revoked only at a PS, by the agent provider that
+//   issued it. A resource that accepts an agent token directly under
+//   identity-based access has no revocation path: the agent provider holds
+//   no record of which resources an agent presents its token to, so it has
+//   nothing to call. That access is bounded by the agent token's lifetime
+//   alone, which is why an agent token SHOULD NOT live longer than 24
+//   hours."
+//
+// This resource serves identity-based access. So it accepts revocations and
+// enforces them — the endpoint below is a conforming implementation — but no
+// conforming caller has anything to send it, because the only credential it
+// accepts is an agent token and an agent token is revoked at the PS.
+//
+// Reaching the resource requires the four-party flow: the agent obtains a
+// person token from the PS, a resource token from here, and an auth token
+// from the PS, which federates to an AS. The AS is where the ATF claim on
+// the agent token gets checked, and the auth token the AS issues is what
+// this endpoint would then revoke, on the AS's call, when the agent
+// provider revokes the agent token at the PS and the PS cascades. That is
+// the flow this demo has not yet built. See `demo/resource-contract.md`.
 
 interface RevocationRequest {
-  iss?: unknown
   jti?: unknown
-  /**
-   * The revoked token's own `exp`. Not in AAuth as written — proposed in
-   * https://github.com/dickhardt/AAuth/issues/146, and accepted here when
-   * offered. Without it a recipient has nothing to size its store from, since
-   * the request carries no token type either and so cannot even be matched to
-   * one of the spec's stated lifetime maxima.
-   */
   exp?: unknown
+}
+
+/**
+ * The caller's verified identity, which is the `iss` the revocation is keyed
+ * under. Taken from the signature and never from the body.
+ *
+ * `jwks_uri` names the signer's identity URL directly and is what the spec's
+ * example uses — the caller signs with the key its own metadata publishes, so
+ * the recipient resolves the `iss` of every token that party mints from the
+ * signature alone. The `jwt` scheme is accepted too, where the identity is
+ * the assertion's own `iss`, since that assertion's signature was verified
+ * against that issuer's JWKS.
+ */
+function callerIdentity(sigResult: {
+  keyType?: string
+  jwks_uri?: { id?: string }
+  jwt?: { payload?: unknown }
+}): string | undefined {
+  if (sigResult.keyType === 'jwks_uri') return sigResult.jwks_uri?.id
+  if (sigResult.keyType === 'jwt') {
+    const iss = (sigResult.jwt?.payload as Record<string, unknown> | undefined)?.iss
+    return typeof iss === 'string' ? iss : undefined
+  }
+  // hwk is a bare key with no issuer behind it, so it identifies nobody this
+  // resource could key a revocation under.
+  return undefined
 }
 
 app.post('/revoke', async (c) => {
@@ -368,15 +422,15 @@ app.post('/revoke', async (c) => {
   const url = new URL(c.req.url)
   const body = await c.req.text()
 
-  // The caller must sign. AAuth §Token Revocation: "Recipients of revocation
-  // requests MUST verify the caller's identity via HTTP Message Signatures
-  // and MUST only accept revocation from the issuer of the token being
-  // revoked or from a trusted PS." Unsigned revocation would let anyone
-  // disable any agent by guessing a jti.
+  // "Recipients of revocation requests MUST verify the caller's identity via
+  // HTTP Message Signatures", and "the caller's identity is established
+  // before the body is examined". A request whose signature does not verify
+  // is a 401 with Signature-Error.
   //
-  // `requireContentDigest` is on: this request has a body, and the body is
-  // the whole of what is being asked for. A signature that does not cover it
-  // authenticates the caller and authorises nothing in particular.
+  // content-digest is required rather than merely validated when offered: a
+  // signature that does not cover the body authenticates the caller and
+  // authorises nothing in particular, and the body is the whole of what is
+  // being asked for.
   const sigResult = await httpSigVerify(
     {
       method: c.req.method,
@@ -385,9 +439,6 @@ app.post('/revoke', async (c) => {
       headers: c.req.raw.headers,
       body,
     },
-    // A signature that does not cover the body authenticates the caller and
-    // authorises nothing in particular, and the body is the whole of what is
-    // being asked for here.
     { requireContentDigest: true }
   )
 
@@ -409,6 +460,17 @@ app.post('/revoke', async (c) => {
     )
   }
 
+  const iss = callerIdentity(sigResult)
+  if (!iss) {
+    return problem(
+      c,
+      403,
+      'unsupported_iss',
+      `a signature under the ${String(sigResult.keyType)} scheme names no issuer this ` +
+        `resource could key a revocation under`
+    )
+  }
+
   let request: RevocationRequest
   try {
     request = JSON.parse(body) as RevocationRequest
@@ -416,99 +478,59 @@ app.post('/revoke', async (c) => {
     return problem(c, 400, 'invalid_request', 'body is not valid JSON')
   }
 
-  const iss = typeof request.iss === 'string' ? request.iss : undefined
-  const jti = typeof request.jti === 'string' ? request.jti : undefined
-  if (!iss || !jti) {
-    return problem(c, 400, 'invalid_request', 'iss and jti are both REQUIRED')
+  // Both REQUIRED. A missing or malformed jti or exp is invalid_request.
+  const jti = typeof request.jti === 'string' && request.jti ? request.jti : undefined
+  const exp = typeof request.exp === 'number' ? request.exp : undefined
+  if (!jti || exp === undefined) {
+    return problem(c, 400, 'invalid_request', 'jti and exp are both REQUIRED')
   }
 
-  // Only the token's own issuer may revoke it. This resource has no trusted
-  // PS — it serves agent identity access and holds no auth tokens — so the
-  // issuer is the whole of the authorisation rule here.
-  //
-  // The caller is identified by whichever scheme it signed with: `jwks_uri`
-  // names the signer's identity URL directly, and `jwt` names it as the
-  // assertion's `iss`. Either way the identity must equal the `iss` of the
-  // token being revoked.
-  const callerId =
-    sigResult.keyType === 'jwks_uri'
-      ? sigResult.jwks_uri?.id
-      : sigResult.keyType === 'jwt'
-        ? ((sigResult.jwt?.payload as Record<string, unknown> | undefined)?.iss as
-            | string
-            | undefined)
-        : undefined
+  const now = Math.floor(Date.now() / 1000)
 
-  if (!callerId || callerId !== iss) {
-    emit(c, {
-      event: 'aauth.revoke.refused',
-      level: 40,
-      msg: 'revocation from a party other than the token issuer',
-      caller_id: callerId,
-      token_iss: iss,
-      token_jti: jti,
-    })
+  // "A recipient MAY reject a revocation whose exp is further in the future
+  // than the longest lifetime it accepts for any token, since it would refuse
+  // such a token on presentation anyway." The longest this resource accepts
+  // is an agent token's 24 hours (§Agent Tokens: SHOULD NOT exceed).
+  if (exp > now + config.maxTokenLifetimeSeconds) {
     return problem(
       c,
-      403,
-      'not_token_issuer',
-      `only the issuer of a token may revoke it; this request was signed by ` +
-        `${callerId ?? 'an unidentified caller'} and names iss ${iss}`
+      400,
+      'invalid_request',
+      `exp is further ahead than the longest token lifetime this resource accepts ` +
+        `(${config.maxTokenLifetimeSeconds}s); such a token would be refused on presentation`
     )
   }
 
-  // A revocation only has to outlive the token it names: past `exp` the token
-  // is refused on expiry and the entry is dead weight. Where the caller gave
-  // `exp` that is the TTL; otherwise 24 hours, which is longer than any agent
-  // token this resource expects to see. KV applies the TTL itself, so entries
-  // expire rather than accumulating and nothing has to sweep them.
-  const now = Math.floor(Date.now() / 1000)
-  const exp = typeof request.exp === 'number' ? request.exp : undefined
-  const ttl = exp !== undefined ? exp + CLOCK_TOLERANCE_SECONDS - now : config.revocationTtlSeconds
-
-  if (ttl <= 0) {
-    // Already expired. AAuth: 200 "if the token was revoked or was already
-    // invalid" — it is already invalid, and storing it would be storing
-    // nothing useful.
-    emit(c, {
-      event: 'aauth.revoke.accepted',
-      msg: 'revocation for an already-expired token; nothing stored',
-      token_iss: iss,
-      token_jti: jti,
-      token_exp: exp,
-      stored: false,
-    })
-    return c.json({ revoked: true, stored: false }, 200)
+  const ttl = exp + CLOCK_TOLERANCE_SECONDS - now
+  if (ttl > 0) {
+    // KV's minimum expiration TTL is 60 seconds. Past exp plus skew the token
+    // is refused on expiry alone and the entry is dead weight, which is the
+    // discard rule the section states.
+    await c.env.REVOCATIONS.put(
+      revocationKey(iss, jti),
+      JSON.stringify({ iss, jti, exp, revoked_at: now }),
+      { expirationTtl: Math.max(60, Math.ceil(ttl)) }
+    )
   }
-
-  // KV's minimum expiration TTL is 60 seconds.
-  const expirationTtl = Math.max(60, Math.ceil(ttl))
-  await c.env.REVOCATIONS.put(
-    revocationKey(iss, jti),
-    JSON.stringify({ iss, jti, exp, revoked_at: now, revoked_by: callerId }),
-    { expirationTtl }
-  )
 
   emit(c, {
     event: 'aauth.revoke.accepted',
-    msg: 'agent token revoked',
+    msg: 'revocation recorded',
+    // The verified signer, which is the namespace the jti is keyed under.
     token_iss: iss,
     token_jti: jti,
     token_exp: exp,
-    // Whether the caller supplied `exp` or this resource fell back. The
-    // fallback is a guess, and a log that cannot tell the two apart cannot
-    // say why an entry outlived its token.
-    ttl_source: exp !== undefined ? 'caller_exp' : 'default',
-    expiration_ttl: expirationTtl,
-    stored: true,
+    // False when the token had already expired: nothing to store, and the
+    // answer is 200 either way.
+    stored: ttl > 0,
   })
 
-  // AAuth: 200 if the token was revoked or was already invalid. This resource
-  // verifies agent tokens statelessly and keeps no record of what it has
-  // seen, so it can never say a pair "is not recognized" — the spec's 404
-  // case assumes a recipient that issued the tokens. Recording the revocation
-  // is the whole of what it can do, and it did it.
-  return c.json({ revoked: true, stored: true, expires_in: expirationTtl }, 200)
+  // "200 OK with an empty body, once the recipient has recorded the
+  // revocation, whether or not it holds a record of the token." This resource
+  // verifies statelessly and keeps nothing, so it never holds one — and
+  // answers exactly as it would if it did, because a response that varied
+  // with what it holds would disclose that.
+  return c.body(null, 200)
 })
 
 // ── GET /agent/echo — agent identity access ──

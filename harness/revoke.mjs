@@ -9,12 +9,22 @@
 // pushes here instead, so no evaluator sits in the request path and there is
 // no fail-open/fail-closed question — there is nothing to fail to reach.
 //
-// The revoking call is signed with the agent token itself. That is not a
-// convenience: AAuth requires the recipient to accept revocation only from
-// the issuer of the token being revoked, and the token's `iss` is what
-// identifies the caller under the `jwt` scheme. A provider revoking in
-// earnest would sign as itself with `jwks_uri`; either way the identity has
-// to equal the `iss` in the body.
+// The revoking call is signed with the agent token itself, so the resource
+// takes `https://dickhardt.github.io` as the caller's identity and keys the
+// revocation under it. Since spec PR #147 the issuer is not a request
+// parameter at all — "the recipient takes it from the identity it verified
+// on the signature", and "a caller cannot name an issuer it cannot sign for,
+// so revoking another issuer's token is not something a recipient refuses,
+// it is unreachable". A provider revoking in earnest signs with `jwks_uri`
+// against the key its own metadata publishes.
+//
+// Note what the same revision says about this particular demonstration: an
+// agent token is revoked only at a PS, and a resource taking agent tokens
+// directly under identity-based access has no revocation path. The endpoint
+// below conforms; the credential it is being asked to revoke does not belong
+// here. Reaching this resource legitimately means the four-party flow, where
+// the AS checks the ATF claim and issues an auth token, and the AS revokes
+// that auth token here when the PS cascades. See demo/resource-contract.md.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -52,6 +62,10 @@ const dump = async (res) => {
     if (v) show(`${name}:`, v)
   }
   const body = await res.text()
+  if (!body) {
+    console.log('(empty body)')
+    return
+  }
   try {
     console.log(JSON.stringify(JSON.parse(body), null, 2))
   } catch {
@@ -72,18 +86,17 @@ const call = async (label) => {
   return response.status
 }
 
-console.log(`iss  ${iss}`)
+console.log(`iss  ${iss}   (taken by the resource from the signature, not the body)`)
 console.log(`jti  ${jti}`)
 console.log(`exp  ${exp}`)
 
 const before = await call('GET /agent/echo — before revocation')
 
-// `exp` is not in AAuth's revocation request as written. It is proposed in
-// https://github.com/dickhardt/AAuth/issues/146, because without it the
-// recipient has no way to size its store: the entry only has to outlive the
-// token, and nothing in the request says when that is. Sent here so the
-// resource can use it; omit it and the resource falls back to 24 hours.
-const body = JSON.stringify({ iss, jti, exp })
+// `jti` and `exp`, both REQUIRED, and no `iss` — that came out of the body
+// in spec PR #147, which settled issue #146. `exp` is the revoked token's own
+// expiration and it bounds how long the recipient has to remember the
+// revocation: past that the token is refused on expiry alone.
+const body = JSON.stringify({ jti, exp })
 
 const { response: revoked, sent } = await sign(`${base}/revoke`, {
   method: 'POST',

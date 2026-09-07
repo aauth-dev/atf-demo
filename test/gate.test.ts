@@ -183,8 +183,9 @@ describe('refusals no fresh token repairs (403)', () => {
   })
 })
 
-describe('revocation (AAuth §Token Revocation)', () => {
-  /** Sign a POST /revoke as `signerIss`, using the jwt scheme. */
+describe('revocation (AAuth §Token Revocation, as revised by spec PR #147)', () => {
+  /** Sign a POST /revoke. The signer's verified identity is the `iss` the
+   *  revocation is keyed under — it is never a body member. */
   async function revoke(
     signerKey: TestKey,
     signerToken: string,
@@ -211,116 +212,106 @@ describe('revocation (AAuth §Token Revocation)', () => {
     return SELF.fetch(url, { method: 'POST', headers, body: payload })
   }
 
+  function jtiOf(token: string): string {
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).jti
+  }
+
   it('the metadata advertises the endpoint', async () => {
     const res = await SELF.fetch(`${RESOURCE}/.well-known/aauth-resource.json`)
     expect(((await res.json()) as any).revocation_endpoint).toBe(`${RESOURCE}/revoke`)
   })
 
-  it('refuses an unsigned revocation', async () => {
+  it('refuses an unsigned revocation with 401', async () => {
     const res = await SELF.fetch(`${RESOURCE}/revoke`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ iss: AP, jti: 'anything' }),
+      body: JSON.stringify({ jti: 'anything', exp: now() + 60 }),
     })
-    // Unsigned revocation would let anyone disable any agent by guessing a
-    // jti. AAuth: recipients MUST verify the caller via HTTP signatures.
+    // "The caller's identity is established before the body is examined."
     expect(res.status).toBe(401)
   })
 
-  it('refuses a revocation signed by someone other than the token issuer', async () => {
-    // OTHER_AP holds a perfectly good token, and tries to revoke one of AP's.
-    const otherToken = await mintAgentToken(otherApKey, agentKey, { iss: OTHER_AP })
-    const res = await revoke(agentKey, otherToken, { iss: AP, jti: 'victim' })
-
-    expect(res.status).toBe(403)
-    expect(((await res.json()) as any).error).toBe('not_token_issuer')
-  })
-
-  it('revokes a token, and the next request with it is refused', async () => {
+  it('answers 200 with an empty body, and refuses the token afterwards', async () => {
     const token = await mintAgentToken(apKey, agentKey)
-    const jti = JSON.parse(
+    const payload = JSON.parse(
       atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-    ).jti as string
+    )
 
-    // It works first.
     expect((await signedGet(agentKey, token)).status).toBe(200)
 
-    // The provider withdraws it, signing as itself with its own agent token.
-    const revocation = await revoke(agentKey, token, { iss: AP, jti })
+    const revocation = await revoke(agentKey, token, {
+      jti: payload.jti,
+      exp: payload.exp,
+    })
+    // "200 OK with an empty body, once the recipient has recorded the
+    // revocation, whether or not it holds a record of the token."
     expect(revocation.status).toBe(200)
-    expect(((await revocation.json()) as any).stored).toBe(true)
+    expect(await revocation.text()).toBe('')
 
-    // 401, not 403: the credential is no longer good and the remedy is
-    // another agent token, exactly as it is for an expired one.
     const after = await signedGet(agentKey, token)
     expect(after.status).toBe(401)
     const body = (await after.json()) as any
     expect(body.error).toBe('agent_token_revoked')
-    // No Signature-Error: the registry has no code for a revoked token, and
-    // expired_jwt — the nearest — would be false.
     expect(after.headers.get('Signature-Error')).toBeNull()
     expect(after.headers.get('AAuth-Requirement')).toBe('requirement=agent-token')
   })
 
-  it('revocation is keyed by (iss, jti), so it does not cross issuers', async () => {
-    const token = await mintAgentToken(apKey, agentKey)
-    const jti = JSON.parse(
-      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-    ).jti as string
-
-    // OTHER_AP revokes the same jti in its own namespace. A jti is unique
-    // only within its issuer, so this must not touch AP's token.
+  it('keys the revocation under the signer, not under anything in the body', async () => {
+    // OTHER_AP signs, naming a jti that AP minted. Since `iss` comes from the
+    // signature, this is recorded under OTHER_AP and cannot touch AP's token.
+    // "A caller cannot name an issuer it cannot sign for, so revoking another
+    // issuer's token is not something a recipient refuses — it is
+    // unreachable." Hence 200 and not a 403.
+    const victim = await mintAgentToken(apKey, agentKey)
     const otherToken = await mintAgentToken(otherApKey, agentKey, { iss: OTHER_AP })
-    expect((await revoke(agentKey, otherToken, { iss: OTHER_AP, jti })).status).toBe(200)
 
-    expect((await signedGet(agentKey, token)).status).toBe(200)
+    const res = await revoke(agentKey, otherToken, {
+      jti: jtiOf(victim),
+      exp: now() + 600,
+      // Even an explicit iss in the body is not read.
+      iss: AP,
+    })
+    expect(res.status).toBe(200)
+
+    expect((await signedGet(agentKey, victim)).status).toBe(200)
   })
 
-  it('rejects a body missing iss or jti', async () => {
+  it('rejects a body missing jti or exp', async () => {
     const token = await mintAgentToken(apKey, agentKey)
-    const res = await revoke(agentKey, token, { iss: AP })
+
+    const noExp = await revoke(agentKey, token, { jti: jtiOf(token) })
+    expect(noExp.status).toBe(400)
+    expect(((await noExp.json()) as any).error).toBe('invalid_request')
+
+    const noJti = await revoke(agentKey, token, { exp: now() + 600 })
+    expect(noJti.status).toBe(400)
+    expect(((await noJti.json()) as any).error).toBe('invalid_request')
+  })
+
+  it('rejects an exp beyond the longest token lifetime it accepts', async () => {
+    const token = await mintAgentToken(apKey, agentKey)
+    // "A recipient MAY reject a revocation whose exp is further in the future
+    // than the longest lifetime it accepts for any token, since it would
+    // refuse such a token on presentation anyway." Here that is 24 hours.
+    const res = await revoke(agentKey, token, {
+      jti: crypto.randomUUID(),
+      exp: now() + 86_400 * 3,
+    })
     expect(res.status).toBe(400)
     expect(((await res.json()) as any).error).toBe('invalid_request')
   })
 
-  it('stores nothing for a token that has already expired', async () => {
+  it('answers 200 for an already-expired token and stores nothing', async () => {
     const token = await mintAgentToken(apKey, agentKey)
-    // exp two hours in the past: the token is already refused on expiry, so
-    // an entry would be storing nothing useful. AAuth wants a 200 either way
-    // — "if the token was revoked or was already invalid".
     const res = await revoke(agentKey, token, {
-      iss: AP,
       jti: crypto.randomUUID(),
       exp: now() - 7200,
     })
+    // Past exp the token is refused on expiry alone, so the entry would be
+    // dead weight. There is no not-found response and no variation by what
+    // the recipient holds.
     expect(res.status).toBe(200)
-    const body = (await res.json()) as any
-    expect(body.revoked).toBe(true)
-    expect(body.stored).toBe(false)
-  })
-
-  it('sizes the entry from exp when given one, and falls back to 24 hours', async () => {
-    const token = await mintAgentToken(apKey, agentKey)
-
-    const withExp = (await (
-      await revoke(agentKey, token, {
-        iss: AP,
-        jti: crypto.randomUUID(),
-        exp: now() + 300,
-      })
-    ).json()) as any
-    // 300s plus the 60s clock tolerance, less however long the test took.
-    expect(withExp.expires_in).toBeGreaterThan(300)
-    expect(withExp.expires_in).toBeLessThanOrEqual(360)
-
-    const withoutExp = await revoke(agentKey, token, {
-      iss: AP,
-      jti: crypto.randomUUID(),
-    })
-    // AAuth's revocation request has no exp field (spec issue #146), so a
-    // caller following the spec as written lands here.
-    expect(((await withoutExp.json()) as any).expires_in).toBe(86_400)
-
+    expect(await res.text()).toBe('')
   })
 })
 
